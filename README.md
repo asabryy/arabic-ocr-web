@@ -139,4 +139,4 @@ MIT — use freely with credit.
 
 ## 👤 Author
 
-Built by [Your Name] — powered by OpenAI and Qwen2-VL
+Built by Ahmed Ahmed — powered by OpenAI and Qwen2-VL
