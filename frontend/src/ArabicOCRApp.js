@@ -1,69 +1,66 @@
 import React, { useState } from "react";
 import axios from "axios";
 
-export default function ArabicOCRApp() {
+function App() {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [downloadUrl, setDownloadUrl] = useState(null);
+  const [error, setError] = useState(null);
+  const [docxPath, setDocxPath] = useState(null);
 
-  const handleUpload = async (e) => {
+  const handleFileChange = (e) => {
+    setFile(e.target.files[0]);
+    setDocxPath(null);
+    setError(null);
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!file) return;
 
     const formData = new FormData();
     formData.append("file", file);
 
-    try {
-      setLoading(true);
-      setDownloadUrl(null);
-      const response = await axios.post("http://localhost:8000/upload", formData, {
-        responseType: "blob",
-      });
+    setLoading(true);
+    setError(null);
+    setDocxPath(null);
 
-      const blob = new Blob([response.data], {
-        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      });
-      const url = window.URL.createObjectURL(blob);
-      setDownloadUrl(url);
+    try {
+      const response = await axios.post(
+        `${process.env.REACT_APP_API_URL || "http://localhost:8000"}/ocr`,
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
+      const downloadPath = response.data.docx_path;
+      setDocxPath(`${process.env.REACT_APP_API_URL || "http://localhost:8000"}${downloadPath}`);
     } catch (err) {
-      alert("Failed to process file");
+      console.error("OCR request failed:", err);
+      setError("Could not process the PDF. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
-      <div className="bg-white shadow-lg rounded-2xl p-6 max-w-md w-full">
-        <h1 className="text-2xl font-bold text-center mb-4">Arabic OCR Converter</h1>
-        <form onSubmit={handleUpload} className="flex flex-col gap-4">
-          <input
-            type="file"
-            accept="application/pdf"
-            onChange={(e) => setFile(e.target.files[0])}
-            className="border border-gray-300 rounded px-3 py-2"
-            required
-          />
-          <button
-            type="submit"
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded"
-            disabled={loading}
-          >
-            {loading ? "Processing..." : "Upload & Convert"}
-          </button>
-        </form>
-        {downloadUrl && (
-          <div className="mt-4 text-center">
-            <a
-              href={downloadUrl}
-              download="arabic_ocr_output.docx"
-              className="text-blue-600 hover:underline"
-            >
-              Download Converted DOCX
-            </a>
-          </div>
-        )}
-      </div>
+    <div className="App" style={{ padding: "2rem", fontFamily: "Arial, sans-serif" }}>
+      <h1>Arabic OCR PDF Converter</h1>
+      <form onSubmit={handleSubmit}>
+        <input type="file" accept="application/pdf" onChange={handleFileChange} />
+        <button type="submit" disabled={loading || !file}>
+          Upload PDF
+        </button>
+      </form>
+
+      {loading && <p>⏳ Processing your PDF, please wait...</p>}
+      {error && <p style={{ color: "red" }}>{error}</p>}
+      {docxPath && (
+        <p>
+          ✅ Done! <a href={docxPath} download>Download your DOCX</a>
+        </p>
+      )}
     </div>
   );
 }
+
+export default App;
