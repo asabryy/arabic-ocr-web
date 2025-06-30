@@ -1,25 +1,32 @@
-version: '3.8'
-
+version: '3.9'
 services:
   backend:
-    build:
-      context: ./backend
-    env_file:
-      - .env.dev
+    build: ./backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./backend:/app
+      - ./backend/uploads:/app/uploads
+      - ./backend/output:/app/output
     ports:
       - "8000:8000"
-    volumes:
-      - ./backend/uploads:/app/uploads
-    runtime: nvidia
-    environment:
-      - NVIDIA_VISIBLE_DEVICES=all
-
-  frontend:
-    build:
-      context: ./frontend
     env_file:
       - .env.dev
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    runtime: nvidia
+
+
+  frontend:
+    build: ./frontend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
     ports:
-      - "3000:80"
+      - "3000:3000"
+    environment:
+      - CHOKIDAR_USEPOLLING=true
     depends_on:
       - backend

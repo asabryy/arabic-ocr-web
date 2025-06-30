@@ -1,142 +1,101 @@
-# Arabic OCR Web App (Qwen2-VL)
+# Arabic OCR Web App
 
-This is a full-stack Arabic OCR (Optical Character Recognition) web application that converts Arabic PDF files — including **diacritics (Tashkeel)** — into downloadable `.docx` Word documents. It uses **Qwen2-VL**, a vision-language model, for accurate text extraction, and supports GPU acceleration via Docker.
+A web-based tool to convert Arabic PDF files (with diacritical marks) into editable Word documents using the Qwen2-VL vision-language model.
 
 ---
 
-## 🧱 Project Structure
+## 🧩 Features
+- Upload Arabic PDFs from browser
+- Extracts text using vision-language OCR (Qwen2-VL)
+- Converts result to `.docx` format
+- Download Word doc from browser
 
+---
+
+## 🏗️ Project Structure
+
+### Backend (FastAPI)
 ```
-arabic-ocr-web/
-├── backend/           # FastAPI + Qwen2-VL backend
-│   ├── main.py
-│   ├── requirements.txt
-│   └── Dockerfile
-├── frontend/          # React frontend with Tailwind styling
-│   ├── src/
-│   ├── public/
-│   ├── Dockerfile
-│   └── nginx.conf
-├── docker-compose.yml # Orchestrates frontend + backend
+backend/
+├── app/
+│   ├── main.py                 # Entrypoint
+│   ├── api/routes.py           # OCR + download routes
+│   ├── core/config.py          # Constants and paths
+│   ├── services/               # OCR, PDF and DOCX logic
+│   └── utils/logger.py         # Logging setup
+├── uploads/                   # Uploaded PDFs
+├── output/                    # Generated DOCX files
+├── requirements.txt
+└── Dockerfile
+```
+
+### Frontend (React)
+```
+frontend/
+├── src/
+│   ├── components/             # FileUpload, Loader, DownloadLink
+│   ├── services/api.js         # Axios logic
+│   ├── styles/index.css        # Global styling
+│   ├── App.js, index.js
+├── public/
+├── package.json
+└── Dockerfile
 ```
 
 ---
 
-## 🚀 Features
+## 🚀 Getting Started (Local Dev with WSL)
 
-- Upload Arabic PDFs through a modern web interface
-- Uses Qwen2-VL for accurate OCR with diacritic support
-- Converts extracted text into structured `.docx` documents
-- Download the result directly from the web app
-- GPU-accelerated backend using NVIDIA Docker (CUDA 12.1)
-- Frontend built with React + Tailwind (ready for customization)
-
----
-
-## 🖥 Requirements
-
-- Docker and Docker Compose
-- NVIDIA GPU with drivers + [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
-
----
-
-## ⚙️ Setup Instructions
-
-### 1. Clone the Repo & Build
-
-```
-git clone https://github.com/your-repo/arabic-ocr-web.git
+### 1. Clone the repository
+```bash
+git clone https://github.com/asabryy/arabic-ocr-web.git
 cd arabic-ocr-web
-docker compose up --build
 ```
 
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:8000
+### 2. Backend Setup (WSL)
+```bash
+cd backend
+python3.10 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+Runs on `http://localhost:8000`
 
-### 2. Upload a PDF
-
-- Go to the frontend (`localhost:3000`)
-- Upload a PDF
-- Wait for OCR processing
-- Download the generated `.docx`
-
----
-
-## 🧠 Backend Overview
-
-- Built using **FastAPI**
-- OCR via **Qwen2-VL model** loaded from HuggingFace
-- Converts PDF to images using `pdf2image`
-- For each page:
-  - Prompt sent to Qwen2-VL
-  - Text extracted with diacritics
-  - Structured into `.docx` with Python `docx` library
-- File returned as HTTP response
+### 3. Frontend Setup
+```bash
+cd frontend
+npm install
+npm start
+```
+Runs on `http://localhost:3000`
 
 ---
 
-## 🌐 Frontend Overview
+## 🐳 Dockerized Dev/Test
+```bash
+# Build and start
+docker-compose -f docker-compose.dev.yml up --build
 
-- Built using **React + Axios**
-- Uploads PDF to `/upload` backend endpoint
-- Receives `.docx` as Blob
-- Shows download link
-- Tailwind CSS for styling
-
----
-
-## 🐳 Docker Setup Details
-
-### Backend (FastAPI + Torch + Qwen2-VL)
-- Base image: `nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04`
-- Installs `torch`, `transformers`, `pdf2image`, etc.
-- Runs `uvicorn` server on port `8000`
-
-### Frontend (React + Nginx)
-- Build: `npm run build`
-- Serve: Nginx on port `3000`
+# Tear down
+docker-compose -f docker-compose.dev.yml down
+```
 
 ---
 
-## ✅ Customization
-
-- Modify `main.py` to change:
-  - OCR prompt
-  - PDF → DOCX layout logic
-- Modify React in `frontend/src/` for new features or layout
-
----
-
-## 🛠 Development Notes
-
-- To rebuild after backend changes:
-  ```
-  docker compose build backend
-  docker compose up
-  ```
-
-- To add persistent volume:
-  ```
-  volumes:
-    - ./backend/uploads:/app/uploads
-  ```
-
----
-
-## 📦 Deployment Options
-
-- Run locally (default)
-- Host on AWS EC2, RunPod, or Paperspace (GPU required)
-- Bundle as desktop app with Tauri or Electron (future step)
+## 👥 Contributing
+If you’re developing or testing:
+- Create a new branch from `dev`
+- Use modular files in `/app/services/`, `/components/`, etc.
+- Commit small, testable changes
 
 ---
 
 ## 📄 License
-
-MIT — use freely with credit.
+MIT
 
 ---
 
-## 👤 Author
-
-Built by Ahmed Ahmed — powered by OpenAI and Qwen2-VL
+## ✨ Credits
+- Qwen2-VL model from [NAMAA Space](https://huggingface.co/NAMAA-Space/Qari-OCR-0.2.2.1-VL-2B-Instruct)
+- Developed by [@asabryy](https://github.com/asabryy)
