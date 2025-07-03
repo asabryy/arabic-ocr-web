@@ -11,17 +11,25 @@ from qwen_vl_utils import process_vision_info
 model_name = "NAMAA-Space/Qari-OCR-0.2.2.1-VL-2B-Instruct"
 model = Qwen2VLForConditionalGeneration.from_pretrained(model_name, torch_dtype=torch.float16, device_map="auto")
 processor = AutoProcessor.from_pretrained(model_name)
-prompt = "Extract the Arabic text from the image below."
+prompt = "Extract the Arabic text from the image below. while maintaing structure of the paragraphs and headings"
 
 
-def ocr_page(image):
+def ocr_page(image, page_number=None):
     messages = [{"role": "user", "content": [{"type": "image", "image": image}, {"type": "text", "text": prompt}]}]
     prompt_text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
     image_inputs, _ = process_vision_info(messages)
     inputs = processor(text=[prompt_text], images=image_inputs, return_tensors="pt", padding=True).to(model.device)
     output = model.generate(**inputs, max_new_tokens=2000)
     generated_tokens = output[:, inputs["input_ids"].shape[-1]:]
-    return processor.batch_decode(generated_tokens, skip_special_tokens=True)[0].strip()
+    decoded = processor.batch_decode(generated_tokens, skip_special_tokens=True)[0].strip()
+
+    if page_number is not None:
+        logger.info(f"[DEBUG] Page {page_number}:")
+        logger.info(f"Prompt Length: {len(prompt_text)}")
+        logger.info(f"Generated Token Count: {len(generated_tokens[0])}")
+        logger.info(f"OCR Output:\n{decoded}\n")
+
+    return decoded
 
 
 async def run_ocr_pipeline(file):
@@ -36,6 +44,11 @@ async def run_ocr_pipeline(file):
 
     images = convert_pdf_to_images(pdf_path)
     logger.info(f"Converting {len(images)} pages to text")
-    texts = [ocr_page(img) for img in images]
+
+    texts = []
+    for i, img in enumerate(images, start=1):
+        text = ocr_page(img, page_number=i)
+        texts.append(text)
+
     save_docx(texts, output_path)
     return os.path.basename(output_path)
