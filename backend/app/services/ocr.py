@@ -8,10 +8,10 @@ import torch
 from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
 from qwen_vl_utils import process_vision_info
 
-model_name = "NAMAA-Space/Qari-OCR-0.2.2.1-VL-2B-Instruct"
+model_name = "NAMAA-Space/Qari-OCR-v0.3-VL-2B-Instruct"
 model = Qwen2VLForConditionalGeneration.from_pretrained(model_name, torch_dtype=torch.float16, device_map="auto")
 processor = AutoProcessor.from_pretrained(model_name)
-prompt = "Extract the Arabic text from the image below. while maintaing structure of the paragraphs and headings"
+prompt = "Extract the Arabic text from the image below. while maintaing layout and structure of the paragraphs and headings for docx file format"
 
 
 def ocr_page(image, page_number=None):
