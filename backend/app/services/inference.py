@@ -4,10 +4,9 @@ from qwen_vl_utils import process_vision_info
 from app.utils.logger import logger
 
 prompt = (
-    "Extract the Arabic text from the image below as semantic, well-formatted HTML. "
-    "Preserve structure including paragraphs and headings, but do NOT treat indented lines or first lines of paragraphs as headings. "
-    "Only use heading tags (h1-h6) if the text is clearly a section title based on font size, boldness, or visual emphasis. "
-    "Retain Arabic diacritics, text direction (RTL), paragraph structure and footnotes for Microsoft Word compatibility."
+    "Extract all Arabic text from the image accurately. Do not skip any words or remove spaces. "
+    "Preserve correct spelling, Arabic diacritics, and natural reading order. "
+    "Do not convert paragraph indentation into headers or change formatting unexpectedly."
 )
 
 @torch.inference_mode()
