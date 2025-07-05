@@ -1,6 +1,6 @@
 from fastapi import APIRouter, UploadFile, File
 from fastapi.responses import FileResponse
-from app.services.ocr import run_ocr_pipeline
+from app.services.ocr_pipeline import run_ocr_pipeline
 from app.core.config import UPLOAD_DIR, OUTPUT_DIR
 import os
 

@@ -1,4 +1,6 @@
 backend/venv
+backend/output/*
+backend/uploads/*
 GETTING_STARTED.pdf
 # Byte-compiled / optimized / DLL files
 __pycache__/
