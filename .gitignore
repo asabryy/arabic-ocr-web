@@ -3,6 +3,8 @@ backend/output/*
 backend/uploads/*
 backend/test
 GETTING_STARTED.pdf
+layout-backend
+ocr-backend
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
