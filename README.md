@@ -3,6 +3,8 @@
 A web-based tool to convert Arabic PDF files (with diacritical marks) into editable Word documents using the Qwen2-VL vision-language model.
 
 ---
+## Architecture
+![Alt text](./app-arch.jpeg?raw=true "Title")
 
 ## 🧩 Features
 - Upload Arabic PDFs from browser
