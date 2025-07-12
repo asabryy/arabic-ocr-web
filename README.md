@@ -6,6 +6,9 @@ A web-based tool to convert Arabic PDF files (with diacritical marks) into edita
 ## Architecture
 ![Alt text](./app-arch.jpeg?raw=true "Title")
 
+### Auth-service
+![Alt text](./auth-service.png?raw=true "Title")
+
 ## 🧩 Features
 - Upload Arabic PDFs from browser
 - Extracts text using vision-language OCR (Qwen2-VL)
