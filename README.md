@@ -4,10 +4,10 @@ A web-based tool to convert Arabic PDF files (with diacritical marks) into edita
 
 ---
 ## Architecture
-![Alt text](./app-arch.jpeg?raw=true "Title")
+![Alt text](./app-arch.jpeg?raw=true "arch")
 
 ### Auth-service
-![Alt text](./auth-service.png?raw=true "Title")
+![Alt text](./auth-service.png?raw=true "auth service")
 
 ## 🧩 Features
 - Upload Arabic PDFs from browser
@@ -104,3 +104,8 @@ MIT
 ## ✨ Credits
 - Qwen2-VL model from [NAMAA Space](https://huggingface.co/NAMAA-Space/Qari-OCR-0.2.2.1-VL-2B-Instruct)
 - Developed by [@asabryy](https://github.com/asabryy)
+
+## Blog
+
+### Dev setup
+![Alt text](./dev-setup.png?raw=true "dev setup")
