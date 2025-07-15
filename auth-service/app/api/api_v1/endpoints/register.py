@@ -1,24 +1,23 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
-from app import crud
-from app.schemas import user
+from app.schemas.user import UserCreate, UserOut
+from app.crud.crud_user import get_user_by_email, create_user
 from app.db.session import get_db
 from app.core.security import create_email_verification_token
+from app.core.rate_limit import limiter
+from app.core.email import send_verification_email
 
 router = APIRouter()
 
-@router.post("/register", response_model=user.UserOut)
-def register_user(user: user.UserCreate, db: Session = Depends(get_db)):
-    if crud.crud_user.get_user_by_email(db, user.email):
+@router.post("/register", response_model=UserOut)
+@limiter.limit("5/minute")
+def register_user(request: Request, user: UserCreate, db: Session = Depends(get_db)):
+    if get_user_by_email(db, user.email):
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    db_user = crud.crud_user.create_user(db, user)
-
-    # Create verification token
+    db_user = create_user(db, user)
     token = create_email_verification_token(user.email)
-
-    # Simulate sending email by printing the link
-    verification_url = f"http://localhost:8000/api/v1/verify-email?token={token}"
-    print(f"🔗 Email verification link (simulate send): {verification_url}")
+    send_verification_email(user.email, token)
 
     return db_user
+
