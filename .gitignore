@@ -5,10 +5,13 @@ backend/test
 GETTING_STARTED.pdf
 layout-backend
 ocr-backend
+*.env
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
 *$py.class
+auth-service/authvenv
+auth-service/key.json
 
 # C extensions
 *.so

@@ -1,21 +1,45 @@
 from fastapi import FastAPI
-from slowapi.errors import RateLimitExceeded
-from slowapi import _rate_limit_exceeded_handler
-from app.core.rate_limit import limiter 
 from app.api.api_v1.api import api_router
 from app.db.session import engine
 from app.db.base import Base
-from starlette.requests import Request
-from starlette.middleware.cors import CORSMiddleware
-import os
+from sqlalchemy.exc import OperationalError
 from dotenv import load_dotenv
+import time
+import logging
+from sqlalchemy import text
 
 load_dotenv()
 
-Base.metadata.create_all(bind=engine)
-
 app = FastAPI(title="Auth Service")
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# Include routes early (FastAPI allows this — they're ready before startup events)
 app.include_router(api_router, prefix="/api/v1")
+
+# Log routes for debug visibility
+for route in app.routes:
+    print(f"Route registered: {route.path}")
+
+@app.on_event("startup")
+async def startup_event():
+    """Wait for DB to be ready and create tables."""
+    max_retries = 10
+    retry_delay = 3
+
+    for attempt in range(max_retries):
+        print("Attempting DB connection...")
+        try:
+            # Simple health check
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            print("Database connection established.")
+
+            # Optional: auto-create tables (disable in production if using Alembic)
+            Base.metadata.create_all(bind=engine)
+            print("Tables created (if they didn't exist).")
+            break
+        except OperationalError as e:
+            print(f" Attempt {attempt + 1}: {e}. Retrying in {retry_delay} seconds...")
+            time.sleep(retry_delay)
+    else:
+        print("Failed to connect to the database after multiple attempts.")
+        raise SystemExit(1)
