@@ -20,4 +20,3 @@ def register_user(request: Request, user: UserCreate, db: Session = Depends(get_
     send_verification_email(user.email, token)
 
     return db_user
-

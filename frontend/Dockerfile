@@ -1,9 +1,20 @@
-FROM node:18 as builder
+# ---- Build Stage ----
+FROM node:18 AS build
 WORKDIR /app
-COPY . .
-RUN npm install
-RUN npm run build
 
+# Install dependencies
+COPY package*.json ./
+RUN npm install
+
+# Copy all source files
+COPY . .
+
+# Force clean and build
+RUN rm -rf dist && npm run build
+
+# ---- Production Stage ----
 FROM nginx:alpine
-COPY --from=builder /app/build /usr/share/nginx/html
+COPY --from=build /app/dist /usr/share/nginx/html
+
+# Custom nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf

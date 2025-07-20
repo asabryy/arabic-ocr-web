@@ -13,11 +13,12 @@ load_dotenv()
 app = FastAPI(title="Auth Service")
 
 # Include routes early (FastAPI allows this — they're ready before startup events)
-app.include_router(api_router, prefix="/api/v1")
+app.include_router(api_router, prefix="/api/auth")
 
 # Log routes for debug visibility
 for route in app.routes:
-    print(f"Route registered: {route.path}")
+    methods = getattr(route, "methods", None)
+    print(f"{methods or ''} → {route.path}")
 
 @app.on_event("startup")
 async def startup_event():

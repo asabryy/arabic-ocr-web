@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: auth-service
-          image: gcr.io/arabic-ocr-web-app/auth-service:v1.0.3
+          image: gcr.io/arabic-ocr-web-app/auth-service:v1.1.8
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
@@ -29,14 +29,14 @@ spec:
               mountPath: /cloudsql
           readinessProbe:
             httpGet:
-              path: /api/v1/health
+              path: /api/auth/health
               port: 8000
             initialDelaySeconds: 10
             periodSeconds: 5
             failureThreshold: 3
           livenessProbe:
             httpGet:
-              path: /api/v1/health
+              path: /api/auth/health
               port: 8000
             initialDelaySeconds: 15
             periodSeconds: 10
@@ -44,20 +44,18 @@ spec:
           resources:
             requests:
               memory: "256Mi"
-              cpu: "250m"
+              cpu: "100m"
             limits:
               memory: "512Mi"
-              cpu: "500m"
+              cpu: "200m"
 
         - name: cloud-sql-proxy
           image: gcr.io/cloudsql-docker/gce-proxy:1.33.10
           command:
-            [
-              "/cloud_sql_proxy",
-              "-dir=/cloudsql",
-              "-instances=arabic-ocr-web-app:us-central1:auth-sql",
-              "-credential_file=/secrets/key.json"
-            ]
+            - "/cloud_sql_proxy"
+            - "-dir=/cloudsql"
+            - "-instances=arabic-ocr-web-app:us-central1:auth-sql"
+            - "-credential_file=/secrets/key.json"
           volumeMounts:
             - name: cloudsql
               mountPath: /cloudsql

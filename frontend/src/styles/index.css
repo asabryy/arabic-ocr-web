@@ -1,13 +1,8 @@
-body {
-  margin: 0;
-  padding: 0;
-  font-family: Arial, sans-serif;
-  background-color: #f4f4f4;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-button {
-  margin-top: 10px;
-  padding: 10px 15px;
-  font-size: 1rem;
-  cursor: pointer;
+/* Custom styles if needed */
+body {
+  font-family: system-ui, sans-serif;
 }

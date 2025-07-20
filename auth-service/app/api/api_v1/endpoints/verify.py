@@ -7,7 +7,7 @@ from starlette.responses import JSONResponse
 
 router = APIRouter()
 
-@router.get("/verify-email")
+@router.get("/verify")
 def verify_email(token: str, db: Session = Depends(get_db)):
     email = verify_email_token(token)
     if not email:

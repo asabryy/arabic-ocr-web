@@ -5,7 +5,7 @@ from sqlalchemy import text
 
 router = APIRouter()
 
-@router.get("/health", tags=["Health"])
+@router.get("/health")
 def health_check():
     print("Entering health_check...")
 
