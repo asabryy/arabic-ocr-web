@@ -6,16 +6,30 @@ GETTING_STARTED.pdf
 layout-backend
 ocr-backend
 *.env
+/k8s/base/auth-secrets.yaml.local
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
 *$py.class
 auth-service/authvenv
 auth-service/key.json
-
+cloudsql-key.json
 # C extensions
 *.so
+# Python
+__pycache__/
+*.py[cod]
+auth-service/authvenv/
+user-service/venv/
+frontend/node_modules/
 
+# Docker
+*.log
+docker-compose.override.yml
+
+# IDEs
+.vscode/
+.idea/
 # Distribution / packaging
 .Python
 build/

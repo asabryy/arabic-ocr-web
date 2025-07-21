@@ -1,23 +1,31 @@
-from fastapi import APIRouter
-from sqlalchemy.orm import Session
-from app.db.session import SessionLocal 
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+from app.db.session import get_db
 
 router = APIRouter()
+logger = logging.getLogger("auth-service.health")
 
-@router.get("/health")
-def health_check():
-    print("Entering health_check...")
 
+@router.get(
+    "",
+    summary="Service health check",
+)
+def health_check(
+    db: Session = Depends(get_db),
+):
+    """
+    Verify that the database connection is healthy.
+    """
     try:
-        db: Session = SessionLocal()
-        print("Running SELECT 1...")
         db.execute(text("SELECT 1"))
-        print("SELECT 1 succeeded.")
         return {"status": "ok"}
-    except Exception as e:
-        print(f"Health check DB error: {e}")
-        return {"status": "error", "detail": str(e)}
-    finally:
-        db.close()
-        print("Closed DB session.")
+    except Exception as ex:
+        logger.error("Health check failed: %s", ex)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database connectivity issue",
+        )

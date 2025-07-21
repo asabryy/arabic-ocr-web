@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-config
+data:
+  FRONTEND_BASE_URL: http://your-frontend
+  REGISTER_RATE_LIMIT: "5/minute"
+  LOGIN_RATE_LIMIT: "5/minute"

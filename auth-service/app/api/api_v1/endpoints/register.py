@@ -1,22 +1,50 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
-from app.schemas.user import UserCreate, UserOut
+
+from app.core.config import Settings
+from app.core.rate_limit import limiter
+from app.core.security import create_email_verification_token
+from app.core.email import send_verification_email
 from app.crud.crud_user import get_user_by_email, create_user
 from app.db.session import get_db
-from app.core.security import create_email_verification_token
-from app.core.rate_limit import limiter
-from app.core.email import send_verification_email
+from app.schemas.user import UserCreate, UserOut
 
 router = APIRouter()
+settings = Settings()
+logger = logging.getLogger("auth-service.register")
 
-@router.post("/register", response_model=UserOut)
-@limiter.limit("5/minute")
-def register_user(request: Request, user: UserCreate, db: Session = Depends(get_db)):
-    if get_user_by_email(db, user.email):
-        raise HTTPException(status_code=400, detail="Email already registered")
 
-    db_user = create_user(db, user)
-    token = create_email_verification_token(user.email)
-    send_verification_email(user.email, token)
+@router.post(
+    "",
+    response_model=UserOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Register a new user",
+)
+@limiter.limit(settings.REGISTER_RATE_LIMIT)
+def register_user(
+    request: Request,
+    user_in: UserCreate,
+    db: Session = Depends(get_db),
+):
+    """
+    Create a new user account and send a verification email.
+    """
+    if get_user_by_email(db, user_in.email):
+        logger.info("Registration attempted for existing email: %s", user_in.email)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email is already registered",
+        )
 
-    return db_user
+    new_user = create_user(db, user_in)
+    token = create_email_verification_token(new_user.email)
+
+    try:
+        send_verification_email(to_email=new_user.email, token=token)
+        logger.info("Verification email sent to %s", new_user.email)
+    except Exception as ex:
+        logger.error("Failed to send verification email: %s", ex)
+
+    return new_user

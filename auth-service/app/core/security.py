@@ -1,43 +1,61 @@
-import os
+import logging
 from datetime import datetime, timedelta
 from typing import Union
-from jose import jwt
+
+from jose import jwt, JWTError
 from passlib.context import CryptContext
-from dotenv import load_dotenv
 
-load_dotenv()
+from app.core.config import Settings
 
-SECRET_KEY = os.getenv("SECRET_KEY", "change-me")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+settings = Settings()
+logger = logging.getLogger("auth-service.security")
 
+# Configure password‑hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+
 def hash_password(password: str) -> str:
+    """
+    Hash a plaintext password using bcrypt.
+    """
     return pwd_context.hash(password)
 
-def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """
+    Verify a plaintext password against its hashed counterpart.
+    """
+    return pwd_context.verify(plain_password, hashed_password)
+
 
 def create_access_token(subject: Union[str, int]) -> str:
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    """
+    Create a JWT containing the subject (user ID) and expiration.
+    """
+    expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRES_MINUTES)
     payload = {"sub": str(subject), "exp": expire}
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
 
 def create_email_verification_token(email: str, expires_delta: timedelta = timedelta(hours=1)) -> str:
+    """
+    Create a scoped JWT for email verification.
+    """
     expire = datetime.utcnow() + expires_delta
-    payload = {
-        "sub": email,
-        "exp": expire,
-        "scope": "email_verification"
-    }
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    payload = {"sub": email, "exp": expire, "scope": "email_verification"}
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
 
 def verify_email_token(token: str) -> Union[str, None]:
+    """
+    Decode and validate an email‑verification token, returning the email if valid.
+    """
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         if payload.get("scope") != "email_verification":
+            logger.warning("Token has invalid scope: %s", payload.get("scope"))
             return None
         return payload.get("sub")
-    except jwt.JWTError:
+    except JWTError as ex:
+        logger.error("Failed to verify email token: %s", ex)
         return None

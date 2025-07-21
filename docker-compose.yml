@@ -1,19 +1,38 @@
-version: '3.8'
+version: "3.8"
 
 services:
-  backend:
-    build: ./backend
+  cloudsql-proxy:
+    image: gcr.io/cloudsql-docker/gce-proxy:1.33.10
+    env_file:
+      - ./.env            # note: refers to project‑root/.env
+    command:
+      - "/cloud_sql_proxy"
+      - "-instances=${CLOUDSQL_INSTANCE_CONNECTION_NAME}=tcp:0.0.0.0:3306"
+      - "-credential_file=/secrets/cloudsql-key.json"
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./cloudsql-key.json:/secrets/cloudsql-key.json:ro
+    networks:
+      - backend
+
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    image: auth-service:dev
+    env_file:
+      - ./.env            # same project‑root/.env
+    command: uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
     ports:
       - "8000:8000"
-    runtime: nvidia
-    environment:
-      - NVIDIA_VISIBLE_DEVICES=all
-    volumes:
-      - ./backend/uploads:/app/uploads
-
-  frontend:
-    build: ./frontend
-    ports:
-      - "3000:80"
     depends_on:
+      - cloudsql-proxy
+    volumes:
+      - ./auth-service/app:/app/app
+    networks:
       - backend
+
+networks:
+  backend:
+    driver: bridge

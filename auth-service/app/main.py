@@ -1,46 +1,55 @@
-from fastapi import FastAPI
-from app.api.api_v1.api import api_router
-from app.db.session import engine
-from app.db.base import Base
-from sqlalchemy.exc import OperationalError
-from dotenv import load_dotenv
-import time
+import asyncio
 import logging
+
+from fastapi import FastAPI
+from slowapi.middleware import SlowAPIMiddleware
+
+from app.api.api_v1.api import api_router
+from app.core.config import Settings
+from app.core.rate_limit import limiter as rate_limiter
+from app.db.base import Base
+from app.db.session import engine
+from sqlalchemy.exc import OperationalError
 from sqlalchemy import text
 
-load_dotenv()
+# Load configuration
+settings = Settings()
 
+# Configure root logger
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("auth-service")
+
+# Create FastAPI app
 app = FastAPI(title="Auth Service")
 
-# Include routes early (FastAPI allows this — they're ready before startup events)
-app.include_router(api_router, prefix="/api/auth")
+# Attach rate‑limiting middleware
+app.state.limiter = rate_limiter
+app.add_middleware(SlowAPIMiddleware)
 
-# Log routes for debug visibility
-for route in app.routes:
-    methods = getattr(route, "methods", None)
-    print(f"{methods or ''} → {route.path}")
+# Mount all API routes under /api/auth/v1
+app.include_router(api_router, prefix="/api/auth/v1")
+
 
 @app.on_event("startup")
 async def startup_event():
-    """Wait for DB to be ready and create tables."""
+    """
+    On startup, retry database connectivity until successful or until
+    max retries are exhausted. In production, use Alembic migrations
+    instead of create_all().
+    """
     max_retries = 10
     retry_delay = 3
-
-    for attempt in range(max_retries):
-        print("Attempting DB connection...")
+    for attempt in range(1, max_retries + 1):
         try:
-            # Simple health check
             with engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
-            print("Database connection established.")
+            logger.info("Database connection established on attempt %d", attempt)
+            # TODO: Replace with Alembic migrations in production
+            # Base.metadata.create_all(bind=engine)
+            return
+        except OperationalError as ex:
+            logger.warning("DB connection attempt %d failed: %s", attempt, ex)
+            await asyncio.sleep(retry_delay)
 
-            # Optional: auto-create tables (disable in production if using Alembic)
-            Base.metadata.create_all(bind=engine)
-            print("Tables created (if they didn't exist).")
-            break
-        except OperationalError as e:
-            print(f" Attempt {attempt + 1}: {e}. Retrying in {retry_delay} seconds...")
-            time.sleep(retry_delay)
-    else:
-        print("Failed to connect to the database after multiple attempts.")
-        raise SystemExit(1)
+    logger.error("Failed to connect to the database after %d attempts", max_retries)
+    raise SystemExit(1)

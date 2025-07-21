@@ -1,36 +1,35 @@
-import os
+import logging
+
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
-from dotenv import load_dotenv
 
-load_dotenv()
+from app.core.config import Settings
 
-SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
-EMAIL_FROM = os.getenv("EMAIL_FROM", "noreply@example.com")
+settings = Settings()
+logger = logging.getLogger("auth-service.email")
+
 
 def send_verification_email(to_email: str, token: str):
-    verify_url = f"http://localhost:8000/api/v1/verify-email?token={token}"
-    subject = "Verify your email"
-    content = f"""
-    Hi,
-
-    Please verify your email by clicking the link below:
-
-    {verify_url}
-
-    If you didn't sign up, ignore this email.
     """
-
+    Send an email with a verification link to the user.
+    """
+    verify_url = f"{settings.FRONTEND_BASE_URL}/verify-email?token={token}"
     message = Mail(
-        from_email=EMAIL_FROM,
+        from_email=settings.EMAIL_FROM,
         to_emails=to_email,
-        subject=subject,
-        plain_text_content=content
+        subject="Please verify your email address",
+        plain_text_content=(
+            f"Hello,\n\n"
+            f"Please verify your email by clicking the link below:\n"
+            f"{verify_url}\n\n"
+            "If you did not register, please ignore this message."
+        ),
     )
 
     try:
-        sg = SendGridAPIClient(SENDGRID_API_KEY)
+        sg = SendGridAPIClient(settings.SENDGRID_API_KEY)
         response = sg.send(message)
-        print(f"Email sent to {to_email}. Status: {response.status_code}")
-    except Exception as e:
-        print(f"SendGrid error: {e}")
+        logger.info("Sent verification email to %s (status %d)", to_email, response.status_code)
+    except Exception as ex:
+        logger.error("Error sending email to %s: %s", to_email, ex)
+        raise
