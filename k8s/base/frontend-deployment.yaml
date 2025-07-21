@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: gcr.io/arabic-ocr-web-app/frontend:v1.1.6
+          image: gcr.io/arabic-ocr-web-app/frontend:latest
           ports:
             - containerPort: 80
 ---

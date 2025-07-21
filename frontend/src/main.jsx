@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import Upload from "./pages/Upload";
 import NotFound from "./pages/NotFound";
 import ComingSoon from "./pages/ComingSoon";
+import VerifyEmail from "./pages/VerifyEmail";
 import "./styles/index.css";
 
 function ProtectedRoute({ children }) {
@@ -23,6 +24,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           <Route path="/" element={<Navigate to="/dashboard" />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
           <Route
             path="/dashboard"
             element={<ProtectedRoute><Dashboard /></ProtectedRoute>}

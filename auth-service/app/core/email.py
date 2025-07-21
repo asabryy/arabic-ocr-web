@@ -13,7 +13,7 @@ def send_verification_email(to_email: str, token: str):
     """
     Send an email with a verification link to the user.
     """
-    verify_url = f"{settings.FRONTEND_BASE_URL}/verify-email?token={token}"
+    verify_url = f"{settings.FRONTEND_BASE_URL}/api/auth/v1/verify?token={token}"
     message = Mail(
         from_email=settings.EMAIL_FROM,
         to_emails=to_email,

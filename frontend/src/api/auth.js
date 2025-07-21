@@ -1,2 +1,2 @@
 import axios from "axios";
-export const authApi = axios.create({ baseURL: "/api/auth" });
+export const authApi = axios.create({ baseURL: "/api/auth/v1" });
