@@ -2,10 +2,20 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: main-ingress
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true" 
 spec:
   ingressClassName: nginx
+
+  tls:
+    - hosts:
+        - textara.app
+      secretName: textara-tls
+
   rules:
-    - http:
+    - host: textara.app            
+      http:
         paths:
           # 1) Auth API
           - path: /api/auth
@@ -15,6 +25,7 @@ spec:
                 name: auth-service
                 port:
                   number: 80
+          # 2) Frontend
           - path: /
             pathType: Prefix
             backend:
