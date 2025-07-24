@@ -3,6 +3,6 @@ kind: ConfigMap
 metadata:
   name: auth-config
 data:
-  FRONTEND_BASE_URL: http://34.45.197.199
+  FRONTEND_BASE_URL: https://textara.app
   REGISTER_RATE_LIMIT: "5/minute"
   LOGIN_RATE_LIMIT: "5/minute"

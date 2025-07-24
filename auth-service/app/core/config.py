@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     EMAIL_FROM: str = "noreply@example.com"
 
     # Frontend (for verification links)
-    FRONTEND_BASE_URL: str = "http://localhost:3000"
+    FRONTEND_BASE_URL: str = "https://textara.app"
 
     # Rate limits
     REGISTER_RATE_LIMIT: str = "5/minute"

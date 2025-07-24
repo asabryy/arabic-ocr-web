@@ -2,7 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom styles if needed */
+@layer base {
+  html {
+    @apply bg-background text-gray-800 font-sans;
+  }
+}
+
 body {
-  font-family: system-ui, sans-serif;
+  @apply font-sans bg-background text-gray-900;
 }

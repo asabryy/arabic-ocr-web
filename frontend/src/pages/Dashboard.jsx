@@ -1,6 +1,8 @@
+// src/pages/Dashboard.jsx
 import React from "react";
 import { useAuth } from "../auth/AuthContext";
 import { useNavigate } from "react-router-dom";
+import MainLayout from "../layouts/MainLayout";
 
 function Dashboard() {
   const { user, logout } = useAuth();
@@ -12,29 +14,35 @@ function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center text-center p-4">
-      <h1 className="text-3xl font-bold mb-2">Welcome, {user?.email}</h1>
-      <p className="mb-6 text-gray-600">This is your dashboard.</p>
-      <div className="space-x-4">
+    <div className="min-h-screen bg-background py-10">
+    <div className="container max-w-4xl text-center">
+        <h1 className="text-3xl font-bold text-brand mb-2">
+        Welcome, {user?.email}
+        </h1>
+        <p className="text-gray-700 mb-6">
+        This is your dashboard. You can upload files, manage documents, and more.
+        </p>
+        <div className="flex flex-col md:flex-row justify-center items-center gap-4">
         <button
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-          onClick={() => navigate("/upload")}
+            className="bg-brand text-white px-6 py-2 rounded-xl hover:bg-brand-dark transition"
+            onClick={() => navigate("/upload")}
         >
-          Upload Document
+            Upload Document
         </button>
         <button
-          className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
-          onClick={() => navigate("/coming-soon")}
+            className="bg-accent text-white px-6 py-2 rounded-xl hover:opacity-90 transition"
+            onClick={() => navigate("/coming-soon")}
         >
-          Other Features
+            Other Features
         </button>
         <button
-          onClick={handleLogout}
-          className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+            onClick={handleLogout}
+            className="bg-red-600 text-white px-6 py-2 rounded-xl hover:bg-red-700 transition"
         >
-          Logout
+            Logout
         </button>
-      </div>
+        </div>
+    </div>
     </div>
   );
 }

@@ -1,6 +1,7 @@
+// src/pages/VerifyEmail.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { authApi } from "../api/auth";
+import { authApi } from "../features/auth/authservice";
 
 function VerifyEmail() {
   const [message, setMessage] = useState("Verifying...");
@@ -18,10 +19,10 @@ function VerifyEmail() {
     const verify = async () => {
       try {
         await authApi.get(`/verify-email?token=${token}`);
-        setMessage("Email verified! Redirecting to login...");
+        setMessage("✅ Email verified! Redirecting to login...");
         setTimeout(() => navigate("/login"), 2000);
       } catch (err) {
-        setMessage("Verification failed. The link may be invalid or expired.");
+        setMessage("❌ Verification failed. Link may be expired.");
       }
     };
 
@@ -29,8 +30,11 @@ function VerifyEmail() {
   }, [location.search, navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <p className="text-lg">{message}</p>
+    <div className="min-h-screen flex items-center justify-center bg-secondary">
+      <div className="card text-center space-y-4">
+        <h2 className="heading">Email Verification</h2>
+        <p className="text-muted">{message}</p>
+      </div>
     </div>
   );
 }

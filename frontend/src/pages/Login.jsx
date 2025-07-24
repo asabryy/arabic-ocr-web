@@ -1,9 +1,9 @@
-// src/pages/Login.jsx
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { authApi } from "../api/auth";
+import { authApi } from "../features/auth/authservice";
 import { useAuth } from "../auth/AuthContext";
+import Input from "../components/ui/Input";
+import Button from "../components/ui/Button";
 
 function Login() {
   const [email, setEmail]       = useState("");
@@ -12,81 +12,62 @@ function Login() {
   const navigate                = useNavigate();
   const { user, login }         = useAuth();
 
-  // Redirect as soon as the context user is set
   useEffect(() => {
-    console.log("ProtectedRoute/user changed:", user);
-    if (user) {
-      console.log("Navigating to dashboard");
-      navigate("/dashboard", { replace: true });
-    }
+    if (user) navigate("/dashboard", { replace: true });
   }, [user, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    console.log("Attempting login for:", email);
 
-    // 1) Exchange credentials for a JWT at /token
     const form = new URLSearchParams();
     form.append("grant_type", "password");
     form.append("username", email);
     form.append("password", password);
 
     try {
-      const { data: tokenRes } = await authApi.post(
-        "/token",
-        form,
-        { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
-      );
-      console.log("Token response:", tokenRes);
+      const { data: tokenRes } = await authApi.post("/token", form, {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" }
+      });
 
-      // 2) Fetch the authenticated user's profile
       const { data: me } = await authApi.get("/users/me", {
         headers: { Authorization: `Bearer ${tokenRes.access_token}` }
       });
-      console.log("Fetched user profile:", me);
 
-      // 3) Store user + token in context (triggers redirect)
       login(me, tokenRes.access_token);
-
     } catch (err) {
-      console.error("Login error:", err);
       setError("Invalid credentials. Please try again.");
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <form onSubmit={handleSubmit} className="bg-white p-8 rounded shadow-md w-96">
-        <h2 className="text-2xl font-bold mb-6 text-center">Login</h2>
-        {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
-        <input
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <form onSubmit={handleSubmit} className="w-full max-w-md bg-white shadow-xl rounded-xl p-8">
+        <h2 className="text-2xl font-bold text-center mb-6 text-brand">Sign in to TextAra</h2>
+
+        {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
+
+        <Input
+          label="Email"
           type="email"
-          placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full mb-4 p-2 border rounded"
           required
         />
-        <input
+
+        <Input
+          label="Password"
           type="password"
-          placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full mb-6 p-2 border rounded"
           required
         />
-        <button
-          type="submit"
-          className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
-        >
-          Sign In
-        </button>
-        <p className="mt-4 text-sm text-center text-gray-600">
-          Don&apos;t have an account?{" "}
-          <a href="/register" className="text-blue-600 hover:underline">
-            Sign up
-          </a>
+
+        <Button type="submit" className="w-full mt-4">Login</Button>
+
+        <p className="text-sm text-center text-gray-600 mt-4">
+          Don’t have an account?{" "}
+          <a href="/register" className="text-brand hover:underline font-medium">Register</a>
         </p>
       </form>
     </div>

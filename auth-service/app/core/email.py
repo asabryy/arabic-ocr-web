@@ -16,15 +16,13 @@ def send_verification_email(to_email: str, token: str):
     verify_url = f"{settings.FRONTEND_BASE_URL}/verify-email?token={token}"
     message = Mail(
         from_email=settings.EMAIL_FROM,
-        to_emails=to_email,
-        subject="Please verify your email address",
-        plain_text_content=(
-            f"Hello,\n\n"
-            f"Please verify your email by clicking the link below:\n"
-            f"{verify_url}\n\n"
-            "If you did not register, please ignore this message."
-        ),
+        to_emails=to_email
     )
+    message.dynamic_template_data = {
+        'email': to_email,
+        'verify_url': verify_url,
+    }
+    message.template_id = 'd-efa8275014ff4abe855d0e0bf9310b00'
 
     try:
         sg = SendGridAPIClient(settings.SENDGRID_API_KEY)

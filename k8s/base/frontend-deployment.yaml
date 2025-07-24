@@ -15,6 +15,7 @@ spec:
       containers:
         - name: frontend
           image: gcr.io/arabic-ocr-web-app/frontend:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 80
 ---
