@@ -11,12 +11,12 @@ export default {
     extend: {
       colors: {
         brand: {
-          DEFAULT: "#4b8782", // green-700
-          light: "#22c55e",   // green-500
-          dark: "#166534",    // green-800
+          DEFAULT: "#f24901", // green-700
+          light: "#e8deceff",   // green-500
+          dark: "#ff9933ff",    // green-800
         },
         accent: "#f3e8d2",     // orange-500 for highlights
-        background: "#fefcf9"  // light neutral background
+        background: "#fbf9f9"  // light neutral background
       },
       fontFamily: {
         sans: ["Inter", "ui-sans-serif", "system-ui"]

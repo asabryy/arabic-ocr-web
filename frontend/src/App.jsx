@@ -23,7 +23,7 @@ function App() {
       <Router>
         <Routes>
           <Route path="/" element={<MainLayout><LandingPage /></MainLayout>} />
-          <Route path="/login" element={<Login />} />
+          <Route path="/login" element={<MainLayout><Login /></MainLayout>} />
           <Route path="/register" element={<Register />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route
