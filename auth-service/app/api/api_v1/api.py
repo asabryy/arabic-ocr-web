@@ -13,7 +13,7 @@ api_router = APIRouter()
 # Authentication endpoints
 api_router.include_router(register_router, prefix="/register", tags=["Auth"])
 api_router.include_router(login_router,    prefix="/token",    tags=["Auth"])
-api_router.include_router(verify_router,   prefix="/verify",   tags=["Auth"])
+api_router.include_router(verify_router,   prefix="/verify-email",   tags=["Auth"])
 
 # Health check
 api_router.include_router(health_router,   prefix="/health",   tags=["Health"])
