@@ -43,3 +43,4 @@ bcrypt==4.0.1
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.20
 pydantic-settings==2.10.1
+psycopg2-binary>=2.9
