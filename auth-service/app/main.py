@@ -26,7 +26,7 @@ app = FastAPI(title="Auth Service")
 # Attach rate‑limiting middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://loquacious-syrniki-f7decb.netlify.app/"],  # or restrict to ["https://your-netlify-site.netlify.app"]
+    allow_origins=["https://loquacious-syrniki-f7decb.netlify.app"],  # or restrict to ["https://your-netlify-site.netlify.app"]
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
