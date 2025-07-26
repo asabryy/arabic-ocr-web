@@ -24,15 +24,16 @@ logger = logging.getLogger("auth-service")
 app = FastAPI(title="Auth Service")
 
 # Attach rate‑limiting middleware
-app.state.limiter = rate_limiter
 app.add_middleware(
-    SlowAPIMiddleware,
     CORSMiddleware,
     allow_origins=["*"],  # or restrict to ["https://your-netlify-site.netlify.app"]
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.state.limiter = rate_limiter
+app.add_middleware(SlowAPIMiddleware)
 
 # Mount all API routes under /api/auth/v1
 app.include_router(api_router, prefix="/api/auth/v1")
