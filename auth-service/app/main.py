@@ -25,9 +25,9 @@ app = FastAPI(title="Auth Service")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["textara.netlify.app",
-                   "textara.app",
-                   "www.textara.app"],
+    allow_origins=["https://textara.netlify.app",
+                   "https://textara.app",
+                   "https://www.textara.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
