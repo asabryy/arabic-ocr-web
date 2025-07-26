@@ -9,6 +9,7 @@ from app.core.config import Settings
 from app.core.rate_limit import limiter as rate_limiter
 from app.db.base import Base
 from app.db.session import engine
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import OperationalError
 from sqlalchemy import text
 
@@ -24,7 +25,14 @@ app = FastAPI(title="Auth Service")
 
 # Attach rate‑limiting middleware
 app.state.limiter = rate_limiter
-app.add_middleware(SlowAPIMiddleware)
+app.add_middleware(
+    SlowAPIMiddleware,
+    CORSMiddleware,
+    allow_origins=["*"],  # or restrict to ["https://your-netlify-site.netlify.app"]
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Mount all API routes under /api/auth/v1
 app.include_router(api_router, prefix="/api/auth/v1")
