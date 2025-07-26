@@ -15,6 +15,10 @@ router = APIRouter()
 settings = Settings()
 logger = logging.getLogger("auth-service.register")
 
+@router.options("")
+def handle_options():
+    """Handle CORS preflight request for /register."""
+    return {}
 
 @router.post(
     "",
