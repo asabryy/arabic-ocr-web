@@ -1,4 +1,4 @@
-from pydantic import BaseSettings
+from pydantic-settings import BaseSettings
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Doc Manager"
