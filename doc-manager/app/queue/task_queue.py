@@ -1,0 +1,23 @@
+import pika
+import json
+from app.core.config import settings
+
+def send_task_to_queue(file_id: str, mode: str):
+    credentials = pika.PlainCredentials(settings.RABBITMQ_USER, settings.RABBITMQ_PASS)
+    connection = pika.BlockingConnection(
+        pika.ConnectionParameters(
+            host=settings.RABBITMQ_HOST,
+            port=settings.RABBITMQ_PORT,
+            credentials=credentials
+        )
+    )
+    channel = connection.channel()
+    channel.queue_declare(queue=settings.RABBITMQ_QUEUE, durable=True)
+    message = json.dumps({"file_id": file_id, "mode": mode})
+    channel.basic_publish(
+        exchange='',
+        routing_key=settings.RABBITMQ_QUEUE,
+        body=message,
+        properties=pika.BasicProperties(delivery_mode=2)
+    )
+    connection.close()
