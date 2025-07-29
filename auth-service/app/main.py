@@ -3,6 +3,8 @@ import logging
 
 from fastapi import FastAPI
 from slowapi.middleware import SlowAPIMiddleware
+from slowapi.errors import RateLimitExceeded
+from fastapi.responses import JSONResponse
 
 from app.api.api_v1.api import api_router
 from app.core.config import Settings
@@ -55,7 +57,7 @@ async def startup_event():
                 conn.execute(text("SELECT 1"))
             logger.info("Database connection established on attempt %d", attempt)
             # TODO: Replace with Alembic migrations in production
-            # Base.metadata.create_all(bind=engine)
+            Base.metadata.create_all(bind=engine)
             return
         except OperationalError as ex:
             logger.warning("DB connection attempt %d failed: %s", attempt, ex)
@@ -63,3 +65,10 @@ async def startup_event():
 
     logger.error("Failed to connect to the database after %d attempts", max_retries)
     raise SystemExit(1)
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request, exc):
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "Too many requests. Please wait before trying again."},
+    )

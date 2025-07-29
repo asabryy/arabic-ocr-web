@@ -1,8 +1,7 @@
 import React from "react";
-import { Link } from "react-router-dom";
-import Button from "../components/ui/Button"; // <-- make sure this is imported
+import Button from "../components/ui/Button";
 
-function LandingPage() {
+function LandingPage({ openLogin, openRegister }) {
   return (
     <div className="min-h-screen bg-background text-gray-900 font-sans">
       <section className="text-center py-20 px-4">
@@ -14,16 +13,20 @@ function LandingPage() {
           Get started today for free or upgrade for more power.
         </p>
         <div className="flex justify-center gap-4">
-          <Link to="/register">
-            <Button className="text-lg px-6 py-3" variant="primary">
-              Get Started
-            </Button>
-          </Link>
-          <Link to="/login">
-            <Button className="text-lg px-6 py-3" variant="secondary">
-              Log In
-            </Button>
-          </Link>
+          <Button
+            onClick={openRegister}
+            className="text-lg px-6 py-3"
+            variant="primary"
+          >
+            Get Started
+          </Button>
+          <Button
+            onClick={openLogin}
+            className="text-lg px-6 py-3"
+            variant="secondary"
+          >
+            Log In
+          </Button>
         </div>
       </section>
 
@@ -52,11 +55,12 @@ function LandingPage() {
         <p className="text-lg mb-6">
           Create an account and convert your first Arabic PDF in seconds.
         </p>
-        <Link to="/register">
-          <Button className="bg-white text-brand font-bold hover:bg-background transition">
-            Sign Up Now
-          </Button>
-        </Link>
+        <Button
+          onClick={openRegister}
+          className="bg-white text-brand font-bold hover:bg-background transition"
+        >
+          Sign Up Now
+        </Button>
       </section>
     </div>
   );

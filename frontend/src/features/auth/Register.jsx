@@ -1,16 +1,17 @@
 import React, { useState } from "react";
-import { authApi } from "../features/auth/authservice";
 import { useNavigate } from "react-router-dom";
+import { registerUser } from "../features/auth/authservice";
 import Input from "../components/ui/Input";
 import Button from "../components/ui/Button";
 
 function Register() {
-  const [email, setEmail]               = useState("");
-  const [password, setPassword]         = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError]               = useState("");
-  const [success, setSuccess]           = useState("");
-  const navigate                        = useNavigate();
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -23,7 +24,7 @@ function Register() {
     }
 
     try {
-      await authApi.post("/register", { email, password });
+      await registerUser({ name, email, password });
       setSuccess("Account created! Redirecting to login...");
       setTimeout(() => navigate("/login"), 2000);
     } catch (err) {
@@ -38,6 +39,14 @@ function Register() {
 
         {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
         {success && <p className="text-green-600 text-sm mb-4">{success}</p>}
+
+        <Input
+          label="Name"
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+        />
 
         <Input
           label="Email"

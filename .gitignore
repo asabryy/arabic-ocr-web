@@ -7,6 +7,10 @@ layout-backend
 ocr-backend
 *.env
 /k8s/base/auth-secrets.yaml.local
+/k8s/base/ocr-secrets.yaml
+/k8s/app-secrets.yaml
+/k8s/*
+ocr
 **/*venv*/
 # Byte-compiled / optimized / DLL files
 __pycache__/

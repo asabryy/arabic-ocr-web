@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { authApi } from "../features/auth/authservice";
-import { useAuth } from "../auth/AuthContext";
-import Input from "../components/ui/Input";
-import Button from "../components/ui/Button";
+import { loginUser } from "./authservice";
+import { useAuth } from "../../auth/AuthContext";
+import Input from "../../components/ui/Input";
+import Button from "../../components/ui/Button";
 
 function Login() {
-  const [email, setEmail]       = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError]       = useState("");
-  const navigate                = useNavigate();
-  const { user, login }         = useAuth();
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
+  const { user, login } = useAuth();
 
   useEffect(() => {
     if (user) navigate("/dashboard", { replace: true });
@@ -20,21 +20,9 @@ function Login() {
     e.preventDefault();
     setError("");
 
-    const form = new URLSearchParams();
-    form.append("grant_type", "password");
-    form.append("username", email);
-    form.append("password", password);
-
     try {
-      const { data: tokenRes } = await authApi.post("/token", form, {
-        headers: { "Content-Type": "application/x-www-form-urlencoded" }
-      });
-
-      const { data: me } = await authApi.get("/users/me", {
-        headers: { Authorization: `Bearer ${tokenRes.access_token}` }
-      });
-
-      login(me, tokenRes.access_token);
+      const data = await loginUser({ email, password });
+      await login(data.access_token); // Let context handle user fetch
     } catch (err) {
       setError("Invalid credentials. Please try again.");
     }
