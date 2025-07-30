@@ -24,7 +24,7 @@ function MainLayout({ children, openLogin, openRegister }) {
           <div className="flex items-center gap-4">
             <NavMenu />
             <Link to="/">
-              <Logo className="h-10 w-auto fill-white" />
+              <Logo className="h-6 w-auto fill-white" />
             </Link>
           </div>
 

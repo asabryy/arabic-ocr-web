@@ -10,6 +10,8 @@ RUN npm install
 COPY . .
 
 # Force clean and build
+ARG VITE_AUTH_API_URL
+ENV VITE_AUTH_API_URL=$VITE_AUTH_API_URL
 RUN rm -rf dist && npm run build
 
 # ---- Production Stage ----

@@ -1,8 +1,11 @@
 import axios from "axios";
 
+const baseUrl = import.meta.env.VITE_AUTH_API_URL?.replace(/\/$/, "");
+
 export const authApi = axios.create({
-  baseURL: "http://localhost/api/auth/v1", // Replace with env var if needed
+  baseURL: `${baseUrl}/api/auth/v1`,
 });
+
 
 // Register user
 export const registerUser = async ({ name, email, password }) => {
