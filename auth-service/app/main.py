@@ -56,8 +56,6 @@ async def startup_event():
             with engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
             logger.info("Database connection established on attempt %d", attempt)
-            # TODO: Replace with Alembic migrations in production
-            Base.metadata.create_all(bind=engine)
             return
         except OperationalError as ex:
             logger.warning("DB connection attempt %d failed: %s", attempt, ex)

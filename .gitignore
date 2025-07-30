@@ -27,7 +27,7 @@ __pycache__/
 auth-service/authvenv/
 user-service/venv/
 frontend/node_modules/
-
+auth-service/supabase/config.toml	
 # Docker
 *.log
 docker-compose.override.yml

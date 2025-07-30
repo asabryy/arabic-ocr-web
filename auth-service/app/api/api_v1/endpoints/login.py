@@ -39,13 +39,6 @@ def login_for_access_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    if not user.email_verified:
-        logger.info("Login attempt before email verification: %s", user.email)
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Email address has not been verified",
-        )
-
     access_token = create_access_token(subject=user.id)
     logger.info("User %s authenticated successfully", user.email)
     return {"access_token": access_token, "token_type": "bearer"}
