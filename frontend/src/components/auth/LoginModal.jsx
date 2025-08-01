@@ -11,7 +11,7 @@ const LoginModal = ({ isOpen, onClose }) => {
   const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  
+
   const navigate = useNavigate();
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -54,7 +54,7 @@ const LoginModal = ({ isOpen, onClose }) => {
           onChange={handleChange}
           required
         />
-        {error && <p className="text-red-500 text-sm">{error}</p>}
+        {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
 
         <Button type="submit" disabled={loading} className="w-full">
           {loading ? "Logging in..." : "Login"}

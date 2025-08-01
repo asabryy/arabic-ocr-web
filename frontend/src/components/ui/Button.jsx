@@ -2,13 +2,19 @@ import React from "react";
 import clsx from "clsx";
 
 const Button = ({ children, variant = "primary", className = "", ...props }) => {
-  const base = "px-4 py-2 rounded-xl font-semibold transition duration-200";
+  const base =
+    "px-4 py-2 font-semibold transition duration-200 rounded-md focus:outline-none focus:ring-2";
 
   const variants = {
-    primary: "bg-brand text-accent hover:bg-brand-dark",
-    secondary: "bg-white border border-brand text-brand hover:bg-brand-light",
-    outline: "border border-brand text-brand hover:bg-brand hover:text-accent",
-    danger: "bg-red-600 text-white hover:bg-red-700"
+    primary:
+      "bg-secondary text-white hover:bg-secondary-dark focus:ring-secondary",
+    secondary:
+      "border border-secondary text-secondary hover:bg-secondary hover:text-white focus:ring-secondary",
+    outline:
+      "border border-content-muted text-content-muted hover:bg-background-subtle dark:hover:bg-primary-light hover:text-secondary focus:ring-secondary",
+    danger:
+      "bg-red-600 text-white hover:bg-red-700 focus:ring-red-400",
+    unstyled: "",
   };
 
   return (

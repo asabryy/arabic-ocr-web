@@ -1,6 +1,6 @@
 # app/main.py
 from fastapi import FastAPI
-from app.api.api_v1.api import router as api_router
+from app.api.api_v1.api import api_router
 import logging
 
 app = FastAPI(title="Doc Manager Service")

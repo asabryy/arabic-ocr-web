@@ -32,7 +32,7 @@ function SignupModal({ isOpen, onClose }) {
 
   return createPortal(
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
-      <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-lg relative">
+      <div className="bg-background dark:bg-background-dark text-content dark:text-content-light rounded-2xl p-6 w-full max-w-md shadow-lg relative">
         <button
           onClick={onClose}
           className="absolute top-3 right-4 text-gray-400 hover:text-gray-600 text-xl"
@@ -67,7 +67,7 @@ function SignupModal({ isOpen, onClose }) {
             required
           />
 
-          {message && <p className="text-sm text-center text-red-600">{message}</p>}
+          {message && <p className="text-sm text-center text-red-600 dark:text-red-400">{message}</p>}
 
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Signing up..." : "Sign Up"}

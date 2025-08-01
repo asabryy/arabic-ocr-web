@@ -35,14 +35,14 @@ function SettingsPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-3xl font-bold text-brand">Settings</h1>
+      <h1 className="text-3xl font-bold text-content">Settings</h1>
 
-      <div className="bg-white rounded-lg shadow p-6 space-y-4">
+      <div className="bg-background dark:bg-primary-light text-content dark:text-content-light rounded-lg shadow p-6 space-y-4">
         <div>
-          <label className="block font-semibold mb-1">Name</label>
+          <label className="block font-semibold text-content mb-1">Name</label>
           <input
             type="text"
-            className="w-full border border-gray-300 rounded px-3 py-2"
+            className="w-full border border-content-muted dark:border-content-dark bg-background dark:bg-background-dark text-content dark:text-content-light rounded px-3 py-2"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
@@ -59,9 +59,9 @@ function SettingsPage() {
         </div>
 
         {!user?.is_verified && (
-          <div className="text-yellow-700 text-sm">
+          <div className="text-yellow-700 dark:text-yellow-400 text-sm">
             Your email is not verified.{" "}
-            <button onClick={resendVerification} className="underline text-blue-600">
+            <button onClick={resendVerification} className="underline text-secondary">
               Resend verification email
             </button>
           </div>
@@ -71,7 +71,7 @@ function SettingsPage() {
           <Button variant="primary" onClick={handleSave} disabled={loading}>
             {loading ? "Saving..." : "Save Changes"}
           </Button>
-          {status && <p className="text-sm text-gray-600">{status}</p>}
+          {status && <p className="text-sm text-content-muted">{status}</p>}
         </div>
       </div>
     </div>
