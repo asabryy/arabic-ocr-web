@@ -1,3 +1,4 @@
+// src/auth/AuthContext.js
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { getCurrentUser } from "../features/auth/authservice";
 
@@ -5,25 +6,21 @@ const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true); // Add loading state
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem("access_token");
     if (token) {
       getCurrentUser(token)
-        .then((userData) => {
-          setUser(userData);
-        })
+        .then((userData) => setUser(userData))
         .catch((err) => {
           console.error("Failed to fetch current user:", err);
           localStorage.removeItem("access_token");
           setUser(null);
         })
-        .finally(() => {
-          setLoading(false); // Stop loading whether successful or not
-        });
+        .finally(() => setLoading(false));
     } else {
-      setLoading(false); // No token = done loading
+      setLoading(false);
     }
   }, []);
 
@@ -33,8 +30,8 @@ export function AuthProvider({ children }) {
       const userData = await getCurrentUser(token);
       setUser(userData);
     } catch (err) {
-      console.error("Login failed to load user data:", err);
-      logout(); // Clean up token on failure
+      console.error("Login failed:", err);
+      logout();
     }
   };
 

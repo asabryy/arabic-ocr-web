@@ -4,7 +4,7 @@ from app.services.storage import FileStorage
 
 router = APIRouter()
 
-@router.post("/upload")
+@router.post("")
 async def upload_file(
     file: UploadFile = File(...),
     user_id: str = Form(...),

@@ -1,13 +1,15 @@
 // src/api/docs.js
 import axios from "axios";
 
-const baseUrl = import.meta.env.VITE_AUTH_API_URL?.replace(/\/$/, "");
+const baseUrl = import.meta.env.VITE_DOC_API_URL?.replace(/\/$/, "");
+
 export const docApi = axios.create({
   baseURL: `${baseUrl}/api/doc-manager/v1`,
 });
 
 // Fetch list of user's documents
 export const fetchUserDocuments = async (userId) => {
+  console.log("Fetching docs for:", userId);
   const res = await docApi.get("/documents", {
     params: { user_id: userId },
   });

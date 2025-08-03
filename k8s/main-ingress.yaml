@@ -17,6 +17,13 @@ spec:
                 name: auth-service
                 port:
                   number: 8000
+          - path: /api/doc-manager/
+            pathType: Prefix
+            backend:
+              service:
+                name: doc-manager
+                port:
+                  number: 8000
           - path: /
             pathType: Prefix
             backend:

@@ -1,13 +1,20 @@
 from pydantic_settings import BaseSettings
+from pydantic import AnyUrl, Field
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "Doc Manager"
+    UPLOAD_DIR: str = Field(..., env="UPLOAD_DIR")
+    rabbitmq_host: str = Field(default="localhost", env="RABBITMQ_HOST")
+    rabbitmq_port: int = Field(default=5672, env="RABBITMQ_PORT")
+    rabbitmq_url: str | None = Field(default=None, env="RABBITMQ_URL")
+    rabbitmq_queue: str = Field(default="ocr_tasks", env="RABBITMQ_QUEUE")
 
-    RABBITMQ_HOST: str = "localhost"
-    RABBITMQ_PORT: int = 5672
-    RABBITMQ_USER: str = "guest"
-    RABBITMQ_PASS: str = "guest"
-    RABBITMQ_QUEUE: str = "doc_tasks"
+    ocr_service_url: AnyUrl = Field(default="http://localhost:8001/ocr", env="OCR_SERVICE_URL")
+
+    s3_bucket: str = Field(..., env="S3_BUCKET")
+    s3_region: str = Field(..., env="S3_REGION")
+    s3_endpoint: AnyUrl = Field(..., env="S3_ENDPOINT")
+    s3_access_key: str = Field(..., env="S3_ACCESS_KEY")
+    s3_secret_key: str = Field(..., env="S3_SECRET_KEY")
 
     class Config:
         env_file = ".env"

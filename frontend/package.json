@@ -16,7 +16,7 @@
     "dotenv": "^17.2.1",
     "events": "^3.3.0",
     "lucide-react": "^0.534.0",
-    "pdfjs-dist": "^5.4.54",
+    "pdfjs-dist": "^5.3.31",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-pdf": "^10.0.1",

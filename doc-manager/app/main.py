@@ -1,11 +1,16 @@
 # app/main.py
+import logging
 from fastapi import FastAPI
 from app.api.api_v1.api import api_router
-import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger("doc-manager")
 
 app = FastAPI(title="Doc Manager Service")
-
-logger = logging.getLogger("doc-manager")
 
 @app.on_event("startup")
 def startup_event():

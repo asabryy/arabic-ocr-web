@@ -10,9 +10,11 @@ RUN npm install
 COPY . .
 
 # Force clean and build
+# Accept Vite environment variables at build time
 ARG VITE_AUTH_API_URL
+ARG VITE_DOC_API_URL
 ENV VITE_AUTH_API_URL=$VITE_AUTH_API_URL
-RUN rm -rf dist && npm run build
+ENV VITE_DOC_API_URL=$VITE_DOC_API_URL
 
 # ---- Production Stage ----
 FROM nginx:alpine
