@@ -10,11 +10,10 @@ class Settings(BaseSettings):
 
     ocr_service_url: AnyUrl = Field(default="http://localhost:8001/ocr", env="OCR_SERVICE_URL")
 
-    s3_bucket: str = Field(..., env="S3_BUCKET")
-    s3_region: str = Field(..., env="S3_REGION")
-    s3_endpoint: AnyUrl = Field(..., env="S3_ENDPOINT")
-    s3_access_key: str = Field(..., env="S3_ACCESS_KEY")
-    s3_secret_key: str = Field(..., env="S3_SECRET_KEY")
+    R2_ENDPOINT_URL: str
+    R2_ACCESS_KEY_ID: str
+    R2_SECRET_ACCESS_KEY: str
+    R2_BUCKET_NAME: str
 
     class Config:
         env_file = ".env"
