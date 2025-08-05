@@ -2,6 +2,7 @@
 import logging
 from fastapi import FastAPI
 from app.api.api_v1.api import api_router
+from app.core.config import settings
 from fastapi.middleware.cors import CORSMiddleware
 
 # Configure logging
@@ -17,7 +18,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://textara.netlify.app",
                    "https://textara.app",
-                   "https://www.textara.app"],
+                   "https://www.textara.app",
+                   settings.R2_ENDPOINT_URL],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
