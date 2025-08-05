@@ -7,6 +7,7 @@ import {
   uploadDocument,
   deleteDocument,
   getDownloadUrl,
+  getPreviewUrl,
 } from "../../api/docs";
 
 import PDFViewer from "../pdf/PDFViewer";
