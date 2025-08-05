@@ -1,7 +1,7 @@
 import logging
 from fastapi import APIRouter, Depends, Query, HTTPException
 from typing import List
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 
 from app.dependencies.storage import get_storage
 from app.services.storage import FileStorage
@@ -47,9 +47,10 @@ def download_file(
 ):
     logger.info(f"⬇️ [GET /download] Request to download '{filename}' for user_id={user_id}")
     try:
-        file_path = storage.get_path(user_id, filename)
-        logger.info(f"Sending file {file_path}")
-        return FileResponse(path=file_path, filename=filename)
+        # get_path now returns a signed Cloudflare R2 URL
+        signed_url = storage.get_path(user_id, filename)
+        logger.info(f"Redirecting to signed URL: {signed_url}")
+        return RedirectResponse(signed_url)
     except Exception as e:
         logger.error(f"Error downloading file {filename}: {e}")
         raise HTTPException(status_code=404, detail="File not found")
