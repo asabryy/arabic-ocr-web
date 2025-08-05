@@ -53,21 +53,26 @@ async def download_file(
         signed_url = storage.get_path(user_id, filename)
 
         if preview:
-            # Proxy stream the file to avoid CORS issues
+            # Proxy stream the file to avoid CORS issues and ensure it's usable in <PDFViewer>
             async with httpx.AsyncClient() as client:
-                r = await client.get(signed_url)
-                if r.status_code != 200:
+                response = await client.get(signed_url)
+                if response.status_code != 200:
+                    logger.error(f"Error fetching file from signed URL: {response.status_code}")
                     raise HTTPException(status_code=404, detail="File not found")
 
+                content_type = response.headers.get("Content-Type", "application/pdf")
                 return StreamingResponse(
-                    iter(r.iter_bytes()),
-                    media_type="application/pdf",
-                    headers={"Content-Disposition": f"inline; filename={filename}"}
+                    content=await response.aread(),  # Important: this returns full binary body
+                    media_type=content_type,
+                    headers={
+                        "Content-Disposition": f"inline; filename={filename}",
+                        "Access-Control-Allow-Origin": "*",
+                    },
                 )
 
-        # Otherwise redirect for direct download
+        # Direct browser download via redirect (no proxy)
         return RedirectResponse(signed_url)
 
     except Exception as e:
-        logger.error(f"Error downloading file {filename}: {e}")
-        raise HTTPException(status_code=404, detail="File not found")
+        logger.exception(f"Error in /download route for file '{filename}': {e}")
+        raise HTTPException(status_code=500, detail="Failed to serve file")
