@@ -40,17 +40,16 @@ def delete_file(
         raise HTTPException(status_code=500, detail="Failed to delete file")
 
 @router.get("/download")
-def download_file(
+def get_signed_download_url(
     user_id: str = Query(...),
     filename: str = Query(...),
     storage: FileStorage = Depends(get_storage),
 ):
     logger.info(f"⬇️ [GET /download] Request to download '{filename}' for user_id={user_id}")
     try:
-        # get_path now returns a signed Cloudflare R2 URL
-        signed_url = storage.get_path(user_id, filename)
-        logger.info(f"Redirecting to signed URL: {signed_url}")
-        return RedirectResponse(signed_url)
+        file_url = storage.get_path(user_id, filename)  # This should return the signed Cloudflare R2 URL
+        logger.info(f"Providing signed URL: {file_url}")
+        return {"url": file_url}
     except Exception as e:
-        logger.error(f"Error downloading file {filename}: {e}")
+        logger.error(f"Error getting signed URL for file {filename}: {e}")
         raise HTTPException(status_code=404, detail="File not found")

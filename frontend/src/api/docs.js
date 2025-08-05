@@ -9,7 +9,6 @@ export const docApi = axios.create({
 
 // Fetch list of user's documents
 export const fetchUserDocuments = async (userId) => {
-  console.log("Fetching docs for:", userId);
   const res = await docApi.get("/documents", {
     params: { user_id: userId },
   });
@@ -33,9 +32,13 @@ export const deleteDocument = async (filename, userId) => {
   return res.data;
 };
 
-// Download URL helper (can be used directly in anchor tag or preview)
-export const getDownloadUrl = (filename, userId) =>
-  `${docApi.defaults.baseURL}/download?user_id=${userId}&filename=${filename}`;
+// ✅ Corrected: Get signed URL for preview or download
+export const getDownloadUrl = async (filename, userId) => {
+  const res = await docApi.get("/download", {
+    params: { user_id: userId, filename },
+  });
+  return res.data.url;
+};
 
 // Save per-file options
 export const saveDocumentOptions = async (filename, userId, options) => {

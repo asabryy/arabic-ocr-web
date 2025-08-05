@@ -52,9 +52,15 @@ function FileExplorer() {
     }
   }, [loading, user?.id]);
 
-  const handleSelect = (filename) => {
-    setSelected(filename);
-    setPreviewUrl(getDownloadUrl(filename, user.id));
+  const handleSelect = async (filename) => {
+    try {
+        const url = await getDownloadUrl(filename, user.id);
+        setSelected(filename);
+        setPreviewUrl(url);
+    } catch (err) {
+        console.error("Preview failed:", err);
+        setError("Could not preview file.");
+    }
   };
 
   const handleDelete = async (filename) => {
@@ -71,11 +77,17 @@ function FileExplorer() {
     }
   };
 
-  const handleDownload = (filename) => {
-    const link = document.createElement("a");
-    link.href = getDownloadUrl(filename, user.id);
-    link.download = filename;
-    link.click();
+  const handleDownload = async (filename) => {
+    try {
+        const url = await getDownloadUrl(filename, user.id);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        link.click();
+    } catch (err) {
+        console.error("Download failed:", err);
+        setError("Failed to download file.");
+    }
   };
 
   const handleFileDrop = async (e) => {
