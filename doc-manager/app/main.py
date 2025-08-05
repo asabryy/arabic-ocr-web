@@ -2,6 +2,7 @@
 import logging
 from fastapi import FastAPI
 from app.api.api_v1.api import api_router
+from fastapi.middleware.cors import CORSMiddleware
 
 # Configure logging
 logging.basicConfig(
@@ -11,6 +12,16 @@ logging.basicConfig(
 logger = logging.getLogger("doc-manager")
 
 app = FastAPI(title="Doc Manager Service")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://textara.netlify.app",
+                   "https://textara.app",
+                   "https://www.textara.app"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
 
 @app.on_event("startup")
 def startup_event():
