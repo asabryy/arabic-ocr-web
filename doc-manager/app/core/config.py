@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     rabbitmq_queue: str = Field(default="ocr_tasks", env="RABBITMQ_QUEUE")
 
     ocr_service_url: AnyUrl = Field(default="http://localhost:8001/ocr", env="OCR_SERVICE_URL")
-
+    STORAGE_BACKEND: str
     R2_ENDPOINT_URL: str
     R2_ACCESS_KEY_ID: str
     R2_SECRET_ACCESS_KEY: str
