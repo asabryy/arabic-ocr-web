@@ -32,13 +32,15 @@ export const deleteDocument = async (filename, userId) => {
   return res.data;
 };
 
-// ✅ Corrected: Get signed URL for preview or download
-export const getDownloadUrl = async (filename, userId) => {
-  const res = await docApi.get("/download", {
-    params: { user_id: userId, filename },
-  });
-  return res.data.url;
-};
+export const getPreviewUrl = (filename, userId) =>
+  `${docApi.defaults.baseURL}/download?user_id=${userId}&filename=${encodeURIComponent(
+    filename
+  )}&preview=true`;
+
+export const getDownloadUrl = (filename, userId) =>
+  `${docApi.defaults.baseURL}/download?user_id=${userId}&filename=${encodeURIComponent(
+    filename
+  )}`;
 
 // Save per-file options
 export const saveDocumentOptions = async (filename, userId, options) => {

@@ -1,7 +1,8 @@
 import logging
 from fastapi import APIRouter, Depends, Query, HTTPException
 from typing import List
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
+import httpx
 
 from app.dependencies.storage import get_storage
 from app.services.storage import FileStorage
@@ -40,16 +41,33 @@ def delete_file(
         raise HTTPException(status_code=500, detail="Failed to delete file")
 
 @router.get("/download")
-def get_signed_download_url(
+async def download_file(
     user_id: str = Query(...),
     filename: str = Query(...),
+    preview: bool = Query(False),
     storage: FileStorage = Depends(get_storage),
 ):
     logger.info(f"⬇️ [GET /download] Request to download '{filename}' for user_id={user_id}")
+
     try:
-        file_url = storage.get_path(user_id, filename)  # This should return the signed Cloudflare R2 URL
-        logger.info(f"Providing signed URL: {file_url}")
-        return {"url": file_url}
+        signed_url = storage.get_path(user_id, filename)
+
+        if preview:
+            # Proxy stream the file to avoid CORS issues
+            async with httpx.AsyncClient() as client:
+                r = await client.get(signed_url)
+                if r.status_code != 200:
+                    raise HTTPException(status_code=404, detail="File not found")
+
+                return StreamingResponse(
+                    iter(r.iter_bytes()),
+                    media_type="application/pdf",
+                    headers={"Content-Disposition": f"inline; filename={filename}"}
+                )
+
+        # Otherwise redirect for direct download
+        return RedirectResponse(signed_url)
+
     except Exception as e:
-        logger.error(f"Error getting signed URL for file {filename}: {e}")
+        logger.error(f"Error downloading file {filename}: {e}")
         raise HTTPException(status_code=404, detail="File not found")

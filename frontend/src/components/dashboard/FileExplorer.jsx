@@ -54,7 +54,7 @@ function FileExplorer() {
 
   const handleSelect = async (filename) => {
     try {
-        const url = await getDownloadUrl(filename, user.id);
+        const url = getPreviewUrl(filename, user.id); // Proxy endpoint
         setSelected(filename);
         setPreviewUrl(url);
     } catch (err) {
@@ -79,7 +79,7 @@ function FileExplorer() {
 
   const handleDownload = async (filename) => {
     try {
-        const url = await getDownloadUrl(filename, user.id);
+        const url = getDownloadUrl(filename, user.id); // Redirect to R2
         const link = document.createElement("a");
         link.href = url;
         link.download = filename;
