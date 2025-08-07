@@ -32,10 +32,11 @@ export const deleteDocument = async (filename, userId) => {
   return res.data;
 };
 
+
 export const getPreviewUrl = (filename, userId) =>
-  `${docApi.defaults.baseURL}/download?user_id=${userId}&filename=${encodeURIComponent(
+  `${docApi.defaults.baseURL}/preview?user_id=${userId}&filename=${encodeURIComponent(
     filename
-  )}&preview=true`;
+  )}`;
 
 export const getDownloadUrl = (filename, userId) =>
   `${docApi.defaults.baseURL}/download?user_id=${userId}&filename=${encodeURIComponent(

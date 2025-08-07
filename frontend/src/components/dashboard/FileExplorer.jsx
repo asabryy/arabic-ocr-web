@@ -1,7 +1,5 @@
-// src/components/FileExplorer.jsx
 import React, { useEffect, useState, useRef } from "react";
 import { useAuth } from "../../auth/AuthContext";
-import { Document, Page, pdfjs } from "react-pdf";
 import {
   fetchUserDocuments,
   uploadDocument,
@@ -12,26 +10,17 @@ import {
 
 import PDFViewer from "../pdf/PDFViewer";
 
-
-
-import "react-pdf/dist/Page/AnnotationLayer.css";
-import "react-pdf/dist/Page/TextLayer.css";
-
-
 function FileExplorer() {
   const { user, loading } = useAuth();
   const [documents, setDocuments] = useState([]);
   const [selected, setSelected] = useState(null);
   const [error, setError] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [downloadUrl, setDownloadUrl] = useState(null);
   const fileInputRef = useRef();
 
   const fetchDocs = async () => {
-    if (!user?.id) {
-      console.warn("User ID missing. Skipping fetch.");
-      return;
-    }
-
+    if (!user?.id) return;
     try {
       const data = await fetchUserDocuments(user.id);
       if (Array.isArray(data)) {
@@ -47,21 +36,13 @@ function FileExplorer() {
   };
 
   useEffect(() => {
-    if (!loading && user?.id) {
-      console.log("Fetching documents for user ID:", user.id);
-      fetchDocs();
-    }
+    if (!loading && user?.id) fetchDocs();
   }, [loading, user?.id]);
 
-  const handleSelect = async (filename) => {
-    try {
-        const url = getPreviewUrl(filename, user.id); // Proxy endpoint
-        setSelected(filename);
-        setPreviewUrl(url);
-    } catch (err) {
-        console.error("Preview failed:", err);
-        setError("Could not preview file.");
-    }
+  const handleSelect = (filename) => {
+    setSelected(filename);
+    setPreviewUrl(getPreviewUrl(filename, user.id));      // ✅ NEW: uses /preview
+    setDownloadUrl(getDownloadUrl(filename, user.id));    // ✅ fallback download
   };
 
   const handleDelete = async (filename) => {
@@ -71,6 +52,7 @@ function FileExplorer() {
       if (selected === filename) {
         setSelected(null);
         setPreviewUrl(null);
+        setDownloadUrl(null);
       }
     } catch (err) {
       console.error("Delete failed:", err);
@@ -80,14 +62,14 @@ function FileExplorer() {
 
   const handleDownload = async (filename) => {
     try {
-        const url = getDownloadUrl(filename, user.id); // Redirect to R2
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = filename;
-        link.click();
+      const url = getDownloadUrl(filename, user.id); // ✅ /download → R2
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.click();
     } catch (err) {
-        console.error("Download failed:", err);
-        setError("Failed to download file.");
+      console.error("Download failed:", err);
+      setError("Failed to download file.");
     }
   };
 
@@ -98,11 +80,7 @@ function FileExplorer() {
   };
 
   const handleUpload = async (file) => {
-    if (!user?.id) {
-      console.warn("Upload failed: user ID is missing.");
-      return;
-    }
-
+    if (!user?.id) return;
     try {
       await uploadDocument(file, user.id);
       fetchDocs();
@@ -186,12 +164,12 @@ function FileExplorer() {
         </ul>
       )}
 
-        {previewUrl && (
+      {previewUrl && (
         <div className="mt-4 border rounded-lg overflow-hidden bg-white dark:bg-gray-900 p-4">
-            <h4 className="text-md font-semibold mb-2">PDF Preview</h4>
-            <PDFViewer fileUrl={previewUrl} />
+          <h4 className="text-md font-semibold mb-2">PDF Preview</h4>
+          <PDFViewer fileUrl={previewUrl} fallbackDownloadUrl={downloadUrl} />
         </div>
-        )}
+      )}
     </div>
   );
 }

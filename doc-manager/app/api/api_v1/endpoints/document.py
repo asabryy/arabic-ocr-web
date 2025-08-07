@@ -1,29 +1,32 @@
 import logging
-from fastapi import APIRouter, Depends, Query, HTTPException
 from typing import List
-from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
+
+from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi.responses import RedirectResponse, StreamingResponse, FileResponse
 import httpx
 
 from app.dependencies.storage import get_storage
 from app.services.storage import FileStorage
 from app.schemas.document import DocumentInfo
+from app.services.local_storage import LocalFileStorage
+from app.services.r2_storage import R2FileStorage
 
 router = APIRouter()
 logger = logging.getLogger("doc-manager.documents")
+
 
 @router.get("/documents", response_model=List[DocumentInfo])
 def list_user_documents(
     user_id: str = Query(...),
     storage: FileStorage = Depends(get_storage),
 ):
-    logger.info(f"[GET /documents] Request received for user_id={user_id}")
+    logger.info(f"[GET /documents] Listing documents for user_id={user_id}")
     try:
-        files = storage.list_files(user_id)
-        logger.info(f"Found {len(files)} documents for user {user_id}")
-        return files
+        return storage.list_files(user_id)
     except Exception as e:
         logger.error(f"Error listing files for user {user_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to list user documents")
+
 
 @router.delete("/documents")
 def delete_file(
@@ -34,49 +37,71 @@ def delete_file(
     logger.info(f"[DELETE /documents] Deleting '{filename}' for user_id={user_id}")
     try:
         storage.delete_file(user_id, filename)
-        logger.info(f"Deleted file {filename}")
         return {"detail": "File deleted"}
     except Exception as e:
-        logger.error(f"Error deleting file {filename}: {e}")
+        logger.error(f"Error deleting file '{filename}': {e}")
         raise HTTPException(status_code=500, detail="Failed to delete file")
 
-@router.get("/download")
-async def download_file(
+
+@router.get("/preview")
+async def preview_file(
     user_id: str = Query(...),
     filename: str = Query(...),
-    preview: bool = Query(False),
     storage: FileStorage = Depends(get_storage),
 ):
-    logger.info(f"⬇️ [GET /download] Request to download '{filename}' for user_id={user_id}")
-
+    logger.info(f"🖼️ [GET /preview] Streaming preview for '{filename}' (user_id={user_id})")
     try:
         signed_url = storage.get_path(user_id, filename)
 
-        if preview:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(signed_url)
+        async with httpx.AsyncClient() as client:
+            response = await client.get(signed_url)
 
-                if response.status_code != 200:
-                    logger.error(f"Failed to fetch PDF: {response.status_code} {response.text}")
-                    raise HTTPException(status_code=404, detail="PDF not found or access denied.")
+            if response.status_code != 200:
+                logger.error(f"Preview fetch failed: {response.status_code} {response.text}")
+                raise HTTPException(status_code=404, detail="PDF not found")
 
-                content_type = response.headers.get("Content-Type", "")
-                if "application/pdf" not in content_type:
-                    logger.error(f"Invalid content type for preview: {content_type}")
-                    raise HTTPException(status_code=400, detail="Preview failed, invalid PDF.")
+            content_type = response.headers.get("Content-Type", "")
+            if "application/pdf" not in content_type:
+                logger.error(f"Preview failed: invalid content type '{content_type}'")
+                raise HTTPException(status_code=400, detail="Invalid PDF file")
 
-                return StreamingResponse(
-                    content=await response.aread(),
-                    media_type="application/pdf",
-                    headers={
-                        "Content-Disposition": f"inline; filename={filename}",
-                        "Access-Control-Allow-Origin": "*",
-                    },
-                )
+            return StreamingResponse(
+                content=response.aiter_bytes(),
+                media_type="application/pdf",
+                headers={"Content-Disposition": f"inline; filename={filename}"},
+            )
+    except Exception as e:
+        logger.exception(f"Preview failed for '{filename}': {e}")
+        raise HTTPException(status_code=500, detail="Failed to preview file")
 
-        # Allow direct download
-        return RedirectResponse(signed_url)
+
+@router.get("/download")
+def download_file(
+    user_id: str = Query(...),
+    filename: str = Query(...),
+    storage: FileStorage = Depends(get_storage),
+):
+    logger.info(f"⬇[GET /download] Download requested for '{filename}' (user_id={user_id})")
+
+    try:
+        path_or_url = storage.get_path(user_id, filename)
+
+        if isinstance(storage, R2FileStorage):
+            logger.info(f"Redirecting to R2 signed URL: {path_or_url}")
+            return RedirectResponse(path_or_url)
+
+        elif isinstance(storage, LocalFileStorage):
+            logger.info(f"Serving local file: {path_or_url}")
+            return FileResponse(
+                path_or_url,
+                media_type="application/pdf",
+                filename=filename,
+            )
+
+        else:
+            logger.error("Unknown storage backend used.")
+            raise HTTPException(status_code=500, detail="Invalid storage configuration")
 
     except Exception as e:
-        logger.exception(f"Download failed for {filename}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to download file.")
+        logger.exception(f"Download failed for '{filename}': {e}")
+        raise HTTPException(status_code=500, detail="Failed to download file")

@@ -7,6 +7,7 @@ from app.schemas.document import DocumentInfo
 from app.services.storage import FileStorage
 from fastapi import HTTPException
 from app.core.config import settings
+from botocore.client import Config
 import os
 import time
 
@@ -17,6 +18,7 @@ class R2FileStorage(FileStorage):
             endpoint_url=settings.R2_ENDPOINT_URL,
             aws_access_key_id=settings.R2_ACCESS_KEY_ID,
             aws_secret_access_key=settings.R2_SECRET_ACCESS_KEY,
+            config=Config(signature_version="s3v4"),
         )
         self.bucket = settings.R2_BUCKET_NAME
 
