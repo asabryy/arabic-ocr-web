@@ -53,26 +53,30 @@ async def download_file(
         signed_url = storage.get_path(user_id, filename)
 
         if preview:
-            # Proxy stream the file to avoid CORS issues and ensure it's usable in <PDFViewer>
             async with httpx.AsyncClient() as client:
                 response = await client.get(signed_url)
-                if response.status_code != 200:
-                    logger.error(f"Error fetching file from signed URL: {response.status_code}")
-                    raise HTTPException(status_code=404, detail="File not found")
 
-                content_type = response.headers.get("Content-Type", "application/pdf")
+                if response.status_code != 200:
+                    logger.error(f"Failed to fetch PDF: {response.status_code} {response.text}")
+                    raise HTTPException(status_code=404, detail="PDF not found or access denied.")
+
+                content_type = response.headers.get("Content-Type", "")
+                if "application/pdf" not in content_type:
+                    logger.error(f"Invalid content type for preview: {content_type}")
+                    raise HTTPException(status_code=400, detail="Preview failed, invalid PDF.")
+
                 return StreamingResponse(
-                    content=await response.aread(),  # Important: this returns full binary body
-                    media_type=content_type,
+                    content=await response.aread(),
+                    media_type="application/pdf",
                     headers={
                         "Content-Disposition": f"inline; filename={filename}",
                         "Access-Control-Allow-Origin": "*",
                     },
                 )
 
-        # Direct browser download via redirect (no proxy)
+        # Allow direct download
         return RedirectResponse(signed_url)
 
     except Exception as e:
-        logger.exception(f"Error in /download route for file '{filename}': {e}")
-        raise HTTPException(status_code=500, detail="Failed to serve file")
+        logger.exception(f"Download failed for {filename}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to download file.")
