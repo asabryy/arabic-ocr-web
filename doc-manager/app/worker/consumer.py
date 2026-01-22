@@ -17,19 +17,19 @@ def process_task(task):
 
 def consume():
     # Added credentials and port
-    credentials = pika.PlainCredentials(settings.RABBITMQ_USER, settings.RABBITMQ_PASS)
+    credentials = pika.PlainCredentials(settings.rabbitmq_user, settings.rabbitmq_pass)
     connection = pika.BlockingConnection(
         pika.ConnectionParameters(
-            host=settings.RABBITMQ_HOST,
-            port=settings.RABBITMQ_PORT,
+            host=settings.rabbitmq_host,
+            port=settings.rabbitmq_port,
             credentials=credentials
         )
     )
     channel = connection.channel()
 
     # Use config-based queue name
-    channel.queue_declare(queue=settings.RABBITMQ_QUEUE, durable=True)
-    logger.info(f"Waiting for messages in '{settings.RABBITMQ_QUEUE}' queue. To exit press CTRL+C")
+    channel.queue_declare(queue=settings.rabbitmq_queue, durable=True)
+    logger.info(f"Waiting for messages in '{settings.rabbitmq_queue}' queue. To exit press CTRL+C")
 
     def callback(ch, method, properties, body):
         try:
@@ -41,7 +41,7 @@ def consume():
             ch.basic_ack(delivery_tag=method.delivery_tag)
 
     channel.basic_qos(prefetch_count=1)
-    channel.basic_consume(queue=settings.RABBITMQ_QUEUE, on_message_callback=callback)
+    channel.basic_consume(queue=settings.rabbitmq_queue, on_message_callback=callback)
 
     try:
         channel.start_consuming()

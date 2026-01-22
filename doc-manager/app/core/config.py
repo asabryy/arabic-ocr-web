@@ -7,6 +7,9 @@ class Settings(BaseSettings):
     rabbitmq_port: int = Field(default=5672, env="RABBITMQ_PORT")
     rabbitmq_url: str | None = Field(default=None, env="RABBITMQ_URL")
     rabbitmq_queue: str = Field(default="ocr_tasks", env="RABBITMQ_QUEUE")
+    rabbitmq_user: str = Field(default="guest", env="RABBITMQ_USER")
+    rabbitmq_pass: str = Field(default="guest", env="RABBITMQ_PASS")
+    rabbitmq_uri: str | None = Field(default=None, env="RABBITMQ_URI")
 
     ocr_service_url: AnyUrl = Field(default="http://localhost:8001/ocr", env="OCR_SERVICE_URL")
     STORAGE_BACKEND: str

@@ -33,6 +33,65 @@ services:
     networks:
       - backend
 
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - backend
+
+  doc-manager:
+    build:
+      context: ./doc-manager
+      dockerfile: Dockerfile
+    image: doc-manager:dev
+    env_file:
+      - ./.env
+    environment:
+      UPLOAD_DIR: /app/uploads
+      STORAGE_BACKEND: local
+    command: uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
+    ports:
+      - "8001:8001"
+    depends_on:
+      - rabbitmq
+    volumes:
+      - ./doc-manager/app:/app/app
+      - ./doc-manager/uploads:/app/uploads
+    networks:
+      - backend
+
+  doc-worker:
+    image: doc-manager:dev
+    env_file:
+      - ./.env
+    environment:
+      UPLOAD_DIR: /app/uploads
+      STORAGE_BACKEND: local
+    command: python -m app.worker.consumer
+    depends_on:
+      - rabbitmq
+    volumes:
+      - ./doc-manager/app:/app/app
+    networks:
+      - backend
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_AUTH_API_URL: http://localhost:8000
+        VITE_DOC_API_URL: http://localhost:8001
+    ports:
+      - "8080:80"
+    depends_on:
+      - auth-service
+      - doc-manager
+    networks:
+      - backend
+
 networks:
   backend:
     driver: bridge
