@@ -15,6 +15,10 @@ A web-based tool to convert Arabic PDF files (with diacritical marks) into edita
 - Converts result to `.docx` format
 - Download Word doc from browser
 
+## 🚧 Current Development Status
+- File upload, listing, preview, and download are implemented via the Doc Manager service.
+- OCR processing and DOCX generation are not yet wired into the worker pipeline.
+
 ---
 
 ## 🏗️ Project Structure
