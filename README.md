@@ -1,115 +1,36 @@
-# Arabic OCR Web App
+# Textara — Arabic OCR Web App
 
-A web-based tool to convert Arabic PDF files (with diacritical marks) into editable Word documents using the Qwen2-VL vision-language model.
+Converts Arabic PDFs into editable Word documents using the [Qari OCR](https://huggingface.co/NAMAA-Space/Qari-OCR-0.2.2.1-VL-2B-Instruct) model (Qwen2-VL fine-tuned for Arabic).
 
 ---
+
+## What it does
+
+Upload an Arabic PDF → Textara runs it through a vision-language OCR model → download a formatted, editable Word document with proper RTL layout.
+
+---
+
 ## Architecture
-![Alt text](./app-arch.jpeg?raw=true "arch")
 
-### Auth-service
-![Alt text](./auth-service.png?raw=true "auth service")
+| Service | Stack | Runs on |
+|---------|-------|---------|
+| `frontend` | React 18 + Vite + Tailwind, Arabic/English i18n | k3s |
+| `auth-service` | FastAPI, SQLAlchemy, Supabase PostgreSQL, JWT | k3s |
+| `doc-manager` | FastAPI, Cloudflare R2, RabbitMQ producer | k3s |
+| `doc-worker` | RabbitMQ consumer (same image as doc-manager) | k3s |
+| `ocr-worker` | Qari model (Qwen2-VL 2B, bf16 LoRA merge) | Modal.com A10G GPU |
+| `rabbitmq` | Message broker for OCR task queue | k3s StatefulSet |
 
-## 🧩 Features
-- Upload Arabic PDFs from browser
-- Extracts text using vision-language OCR (Qwen2-VL)
-- Converts result to `.docx` format
-- Download Word doc from browser
+All traffic routes through an Nginx ingress on a k3s cluster hosted on Oracle Cloud Free Tier:
+- `/api/auth/` → `auth-service`
+- `/api/doc-manager/` → `doc-manager`
+- `/` → `frontend`
 
-## 🚧 Current Development Status
-- File upload, listing, preview, and download are implemented via the Doc Manager service.
-- OCR processing and DOCX generation are not yet wired into the worker pipeline.
-
----
-
-## 🏗️ Project Structure
-
-### Backend (FastAPI)
-```
-backend/
-├── app/
-│   ├── main.py                 # Entrypoint
-│   ├── api/routes.py           # OCR + download routes
-│   ├── core/config.py          # Constants and paths
-│   ├── services/               # OCR, PDF and DOCX logic
-│   └── utils/logger.py         # Logging setup
-├── uploads/                   # Uploaded PDFs
-├── output/                    # Generated DOCX files
-├── requirements.txt
-└── Dockerfile
-```
-
-### Frontend (React)
-```
-frontend/
-├── src/
-│   ├── components/             # FileUpload, Loader, DownloadLink
-│   ├── services/api.js         # Axios logic
-│   ├── styles/index.css        # Global styling
-│   ├── App.js, index.js
-├── public/
-├── package.json
-└── Dockerfile
-```
+The OCR pipeline runs serverlessly on Modal.com — PDFs are sent as bytes, processed page-by-page through the Qari model, and returned as DOCX bytes.
 
 ---
 
-## 🚀 Getting Started (Local Dev with WSL)
+## Credits
 
-### 1. Clone the repository
-```bash
-git clone https://github.com/asabryy/arabic-ocr-web.git
-cd arabic-ocr-web
-```
-
-### 2. Backend Setup (WSL)
-```bash
-cd backend
-python3.10 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
-```
-Runs on `http://localhost:8000`
-
-### 3. Frontend Setup
-```bash
-cd frontend
-npm install
-npm start
-```
-Runs on `http://localhost:3000`
-
----
-
-## 🐳 Dockerized Dev/Test
-```bash
-# Build and start
-docker-compose -f docker-compose.dev.yml up --build
-
-# Tear down
-docker-compose -f docker-compose.dev.yml down
-```
-
----
-
-## 👥 Contributing
-If you’re developing or testing:
-- Create a new branch from `dev`
-- Use modular files in `/app/services/`, `/components/`, etc.
-- Commit small, testable changes
-
----
-
-## 📄 License
-MIT
-
----
-
-## ✨ Credits
-- Qwen2-VL model from [NAMAA Space](https://huggingface.co/NAMAA-Space/Qari-OCR-0.2.2.1-VL-2B-Instruct)
-- Developed by [@asabryy](https://github.com/asabryy)
-
-## Blog
-
-### Dev setup
-![Alt text](./dev-setup.png?raw=true "dev setup")
+- OCR model: [Qari by NAMAA Space](https://huggingface.co/NAMAA-Space/Qari-OCR-0.2.2.1-VL-2B-Instruct)
+- Built by [@asabryy](https://github.com/asabryy)
