@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: doc-manager
+  namespace: textara
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: doc-manager
+  template:
+    metadata:
+      labels:
+        app: doc-manager
+    spec:
+      imagePullSecrets:
+        - name: ghcr-secret
+      containers:
+        - name: doc-manager
+          image: ghcr.io/asabryy/doc-manager:latest
+          ports:
+            - containerPort: 8001
+          envFrom:
+            - configMapRef:
+                name: doc-manager-config
+            - secretRef:
+                name: doc-manager-secret
+          readinessProbe:
+            httpGet:
+              path: /api/doc-manager/v1/health
+              port: 8001
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

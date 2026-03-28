@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-service-config
+  namespace: textara
+data:
+  ALGORITHM: "HS256"
+  ACCESS_TOKEN_EXPIRES_MINUTES: "30"
+  EMAIL_FROM: "noreply@textara.app"
+  FRONTEND_BASE_URL: "https://textara.app"
+  REGISTER_RATE_LIMIT: "5/minute"
+  LOGIN_RATE_LIMIT: "5/minute"
+  CORS_ORIGINS: "https://textara.app,https://www.textara.app"
+  # Injected at deploy time via CI secret GOOGLE_CLIENT_ID
+  GOOGLE_CLIENT_ID: ""

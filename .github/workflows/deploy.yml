@@ -1,0 +1,161 @@
+name: Deploy
+
+on:
+  push:
+    branches: [kubernetes]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Build and push auth-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./auth-service
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/auth-service:latest
+            ${{ env.IMAGE_PREFIX }}/auth-service:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push doc-manager
+        uses: docker/build-push-action@v5
+        with:
+          context: ./doc-manager
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/doc-manager:latest
+            ${{ env.IMAGE_PREFIX }}/doc-manager:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/frontend:latest
+            ${{ env.IMAGE_PREFIX }}/frontend:${{ github.sha }}
+          build-args: |
+            VITE_AUTH_API_URL=
+            VITE_DOC_API_URL=
+            VITE_GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Deploy Modal OCR app
+        run: uv run modal deploy ocr-worker/modal_app.py
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+
+      - name: Set up kubectl
+        run: |
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > /tmp/kubeconfig
+          echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
+
+      - name: Run Alembic migrations
+        run: |
+          kubectl run alembic-migrate-${{ github.run_id }} \
+            --image=${{ env.IMAGE_PREFIX }}/auth-service:${{ github.sha }} \
+            --restart=Never \
+            --namespace=textara \
+            --env="DATABASE_URL=${{ secrets.AUTH_DATABASE_URL }}" \
+            --command -- .venv/bin/alembic upgrade head
+          kubectl wait pod/alembic-migrate-${{ github.run_id }} \
+            --for=condition=Ready --timeout=60s --namespace=textara || true
+          kubectl wait pod/alembic-migrate-${{ github.run_id }} \
+            --for=jsonpath='{.status.phase}'=Succeeded --timeout=120s --namespace=textara
+          kubectl delete pod alembic-migrate-${{ github.run_id }} --namespace=textara
+
+      - name: Sync Kubernetes secrets
+        run: |
+          kubectl create secret generic auth-service-secret \
+            --from-literal=DATABASE_URL="${{ secrets.AUTH_DATABASE_URL }}" \
+            --from-literal=SECRET_KEY="${{ secrets.AUTH_SECRET_KEY }}" \
+            --from-literal=SENDGRID_API_KEY="${{ secrets.SENDGRID_API_KEY }}" \
+            --namespace=textara --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl create secret generic doc-manager-secret \
+            --from-literal=SECRET_KEY="${{ secrets.AUTH_SECRET_KEY }}" \
+            --from-literal=RABBITMQ_PASS="${{ secrets.RABBITMQ_PASS }}" \
+            --from-literal=R2_ENDPOINT_URL="${{ secrets.R2_ENDPOINT_URL }}" \
+            --from-literal=R2_ACCESS_KEY_ID="${{ secrets.R2_ACCESS_KEY_ID }}" \
+            --from-literal=R2_SECRET_ACCESS_KEY="${{ secrets.R2_SECRET_ACCESS_KEY }}" \
+            --from-literal=R2_BUCKET_NAME="${{ secrets.R2_BUCKET_NAME }}" \
+            --from-literal=MODAL_TOKEN_ID="${{ secrets.MODAL_TOKEN_ID }}" \
+            --from-literal=MODAL_TOKEN_SECRET="${{ secrets.MODAL_TOKEN_SECRET }}" \
+            --namespace=textara --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl create secret generic rabbitmq-secret \
+            --from-literal=RABBITMQ_DEFAULT_PASS="${{ secrets.RABBITMQ_PASS }}" \
+            --namespace=textara --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl create secret docker-registry ghcr-secret \
+            --docker-server=ghcr.io \
+            --docker-username=${{ github.actor }} \
+            --docker-password=${{ secrets.GHCR_TOKEN }} \
+            --namespace=textara --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Inject GOOGLE_CLIENT_ID into configmap
+        run: |
+          kubectl patch configmap auth-service-config \
+            --namespace=textara \
+            --type=merge \
+            -p '{"data": {"GOOGLE_CLIENT_ID": "${{ secrets.GOOGLE_CLIENT_ID }}"}}'
+
+      - name: Apply Kubernetes manifests
+        run: kubectl apply -f k8s/ --recursive --namespace=textara
+
+      - name: Pin deployments to SHA image
+        run: |
+          kubectl set image deployment/auth-service \
+            auth-service=${{ env.IMAGE_PREFIX }}/auth-service:${{ github.sha }} \
+            --namespace=textara
+          kubectl set image deployment/doc-manager \
+            doc-manager=${{ env.IMAGE_PREFIX }}/doc-manager:${{ github.sha }} \
+            --namespace=textara
+          kubectl set image deployment/doc-worker \
+            doc-worker=${{ env.IMAGE_PREFIX }}/doc-manager:${{ github.sha }} \
+            --namespace=textara
+          kubectl set image deployment/frontend \
+            frontend=${{ env.IMAGE_PREFIX }}/frontend:${{ github.sha }} \
+            --namespace=textara
+
+      - name: Wait for rollout
+        id: rollout
+        run: |
+          kubectl rollout status deployment/auth-service --namespace=textara --timeout=5m
+          kubectl rollout status deployment/doc-manager --namespace=textara --timeout=5m
+          kubectl rollout status deployment/doc-worker --namespace=textara --timeout=5m
+          kubectl rollout status deployment/frontend --namespace=textara --timeout=5m
+
+      - name: Rollback on failure
+        if: failure() && steps.rollout.conclusion == 'failure'
+        run: |
+          kubectl rollout undo deployment/auth-service --namespace=textara || true
+          kubectl rollout undo deployment/doc-manager --namespace=textara || true
+          kubectl rollout undo deployment/doc-worker --namespace=textara || true
+          kubectl rollout undo deployment/frontend --namespace=textara || true

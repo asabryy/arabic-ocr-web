@@ -1,0 +1,97 @@
+version: "3.8"
+
+services:
+  cloudsql-proxy:
+    image: gcr.io/cloudsql-docker/gce-proxy:1.33.10
+    env_file:
+      - ./.env            # note: refers to project‑root/.env
+    command:
+      - "/cloud_sql_proxy"
+      - "-instances=${CLOUDSQL_INSTANCE_CONNECTION_NAME}=tcp:0.0.0.0:3306"
+      - "-credential_file=/secrets/cloudsql-key.json"
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./cloudsql-key.json:/secrets/cloudsql-key.json:ro
+    networks:
+      - backend
+
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    image: auth-service:dev
+    env_file:
+      - ./.env            # same project‑root/.env
+    command: uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      - cloudsql-proxy
+    volumes:
+      - ./auth-service/app:/app/app
+    networks:
+      - backend
+
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - backend
+
+  doc-manager:
+    build:
+      context: ./doc-manager
+      dockerfile: Dockerfile
+    image: doc-manager:dev
+    env_file:
+      - ./.env
+    environment:
+      UPLOAD_DIR: /app/uploads
+      STORAGE_BACKEND: local
+    command: uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
+    ports:
+      - "8001:8001"
+    depends_on:
+      - rabbitmq
+    volumes:
+      - ./doc-manager/app:/app/app
+      - ./doc-manager/uploads:/app/uploads
+    networks:
+      - backend
+
+  doc-worker:
+    image: doc-manager:dev
+    env_file:
+      - ./.env
+    environment:
+      UPLOAD_DIR: /app/uploads
+      STORAGE_BACKEND: local
+    command: python -m app.worker.consumer
+    depends_on:
+      - rabbitmq
+    volumes:
+      - ./doc-manager/app:/app/app
+    networks:
+      - backend
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_AUTH_API_URL: http://localhost:8000
+        VITE_DOC_API_URL: http://localhost:8001
+    ports:
+      - "8080:80"
+    depends_on:
+      - auth-service
+      - doc-manager
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge

@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply font-sans bg-background text-content dark:bg-background-dark dark:text-content-light;
+  }
+
+  body {
+    @apply font-sans;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold text-content dark:text-content-light;
+  }
+
+  a {
+    @apply text-secondary hover:text-secondary-light dark:hover:text-secondary-dark transition-colors;
+  }
+
+  button {
+    @apply focus:outline-none focus:ring-2 focus:ring-secondary dark:focus:ring-secondary-light;
+  }
+}

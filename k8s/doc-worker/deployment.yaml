@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: doc-worker
+  namespace: textara
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: doc-worker
+  template:
+    metadata:
+      labels:
+        app: doc-worker
+    spec:
+      imagePullSecrets:
+        - name: ghcr-secret
+      containers:
+        - name: doc-worker
+          image: ghcr.io/asabryy/doc-manager:latest
+          command: [".venv/bin/python", "-m", "app.worker.consumer"]
+          envFrom:
+            - configMapRef:
+                name: doc-manager-config
+            - secretRef:
+                name: doc-manager-secret
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
