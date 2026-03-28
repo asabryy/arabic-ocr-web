@@ -14,11 +14,11 @@ spec:
         app: doc-worker
     spec:
       imagePullSecrets:
-        - name: ghcr-secret
+        - name: ghcr-credentials
       containers:
         - name: doc-worker
           image: ghcr.io/asabryy/doc-manager:latest
-          command: [".venv/bin/python", "-m", "app.worker.consumer"]
+          command: ["python", "-m", "app.worker.consumer"]
           envFrom:
             - configMapRef:
                 name: doc-manager-config
@@ -26,8 +26,8 @@ spec:
                 name: doc-manager-secret
           resources:
             requests:
-              memory: "256Mi"
+              memory: "128Mi"
               cpu: "100m"
             limits:
-              memory: "512Mi"
-              cpu: "500m"
+              memory: "256Mi"
+              cpu: "250m"

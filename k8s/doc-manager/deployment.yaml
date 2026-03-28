@@ -12,9 +12,13 @@ spec:
     metadata:
       labels:
         app: doc-manager
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /metrics
+        prometheus.io/port: "8001"
     spec:
       imagePullSecrets:
-        - name: ghcr-secret
+        - name: ghcr-credentials
       containers:
         - name: doc-manager
           image: ghcr.io/asabryy/doc-manager:latest
@@ -31,10 +35,16 @@ spec:
               port: 8001
             initialDelaySeconds: 10
             periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/doc-manager/v1/health
+              port: 8001
+            initialDelaySeconds: 30
+            periodSeconds: 30
           resources:
             requests:
-              memory: "256Mi"
+              memory: "128Mi"
               cpu: "100m"
             limits:
-              memory: "512Mi"
-              cpu: "500m"
+              memory: "256Mi"
+              cpu: "250m"

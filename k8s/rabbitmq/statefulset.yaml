@@ -13,38 +13,62 @@ spec:
     metadata:
       labels:
         app: rabbitmq
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /metrics
+        prometheus.io/port: "15692"
     spec:
       containers:
         - name: rabbitmq
-          image: rabbitmq:3.12-management
+          image: rabbitmq:3.12-management-alpine
           ports:
             - containerPort: 5672
               name: amqp
             - containerPort: 15672
               name: management
+            - containerPort: 15692
+              name: prometheus
           env:
+            - name: RABBITMQ_ENABLED_PLUGINS_FILE
+              value: /etc/rabbitmq/enabled_plugins
             - name: RABBITMQ_DEFAULT_USER
-              value: textara
+              value: guest
             - name: RABBITMQ_DEFAULT_PASS
               valueFrom:
                 secretKeyRef:
-                  name: rabbitmq-secret
-                  key: RABBITMQ_DEFAULT_PASS
+                  name: doc-manager-secret
+                  key: RABBITMQ_PASS
           volumeMounts:
             - name: rabbitmq-data
               mountPath: /var/lib/rabbitmq
+            - name: plugins-config
+              mountPath: /etc/rabbitmq/enabled_plugins
+              subPath: enabled_plugins
           readinessProbe:
             exec:
               command: ["rabbitmq-diagnostics", "ping"]
-            initialDelaySeconds: 20
-            periodSeconds: 10
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 12
+            timeoutSeconds: 20
+          livenessProbe:
+            tcpSocket:
+              port: 5672
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            failureThreshold: 8
+            timeoutSeconds: 5
           resources:
             requests:
               memory: "256Mi"
               cpu: "100m"
             limits:
-              memory: "512Mi"
-              cpu: "500m"
+              memory: "768Mi"
+              cpu: "250m"
+      volumes:
+        - name: plugins-config
+          configMap:
+            name: rabbitmq-plugins
   volumeClaimTemplates:
     - metadata:
         name: rabbitmq-data

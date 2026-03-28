@@ -6,11 +6,11 @@ metadata:
 data:
   ALGORITHM: "HS256"
   STORAGE_BACKEND: "r2"
-  UPLOAD_DIR: "./uploads"
-  rabbitmq_host: "rabbitmq"
-  rabbitmq_port: "5672"
-  rabbitmq_user: "textara"
-  rabbitmq_queue: "ocr_tasks"
+  UPLOAD_DIR: "/app/uploads"
+  RABBITMQ_HOST: "rabbitmq"
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_USER: "guest"
+  RABBITMQ_QUEUE: "ocr_tasks"
   CORS_ORIGINS: "https://textara.app,https://www.textara.app"
-  # OCR backend: "modal" for prod, "http" for local dev
+  # OCR backend: "modal" for prod, "http" for local dev (patched by local-k8s.sh)
   OCR_BACKEND: "modal"

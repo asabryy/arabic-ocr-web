@@ -12,9 +12,13 @@ spec:
     metadata:
       labels:
         app: auth-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /metrics
+        prometheus.io/port: "8000"
     spec:
       imagePullSecrets:
-        - name: ghcr-secret
+        - name: ghcr-credentials
       containers:
         - name: auth-service
           image: ghcr.io/asabryy/auth-service:latest
@@ -31,10 +35,16 @@ spec:
               port: 8000
             initialDelaySeconds: 10
             periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/auth/v1/health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 30
           resources:
             requests:
-              memory: "256Mi"
+              memory: "128Mi"
               cpu: "100m"
             limits:
-              memory: "512Mi"
-              cpu: "500m"
+              memory: "256Mi"
+              cpu: "250m"

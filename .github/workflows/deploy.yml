@@ -113,7 +113,7 @@ jobs:
             --from-literal=RABBITMQ_DEFAULT_PASS="${{ secrets.RABBITMQ_PASS }}" \
             --namespace=textara --dry-run=client -o yaml | kubectl apply -f -
 
-          kubectl create secret docker-registry ghcr-secret \
+          kubectl create secret docker-registry ghcr-credentials \
             --docker-server=ghcr.io \
             --docker-username=${{ github.actor }} \
             --docker-password=${{ secrets.GHCR_TOKEN }} \
@@ -127,7 +127,16 @@ jobs:
             -p '{"data": {"GOOGLE_CLIENT_ID": "${{ secrets.GOOGLE_CLIENT_ID }}"}}'
 
       - name: Apply Kubernetes manifests
-        run: kubectl apply -f k8s/ --recursive --namespace=textara
+        # k8s/local/ is local-dev-only (postgres), never applied to prod
+        run: |
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/ingress.yaml --namespace=textara
+          kubectl apply -f k8s/cert-manager/ --namespace=textara
+          kubectl apply -f k8s/rabbitmq/ --namespace=textara
+          kubectl apply -f k8s/auth-service/ --namespace=textara
+          kubectl apply -f k8s/doc-manager/ --namespace=textara
+          kubectl apply -f k8s/doc-worker/ --namespace=textara
+          kubectl apply -f k8s/frontend/ --namespace=textara
 
       - name: Pin deployments to SHA image
         run: |
