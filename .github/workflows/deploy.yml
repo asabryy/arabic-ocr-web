@@ -85,13 +85,16 @@ jobs:
             --namespace=textara --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Run Alembic migrations
+        env:
+          AUTH_DATABASE_URL: ${{ secrets.AUTH_DATABASE_URL }}
+          AUTH_SECRET_KEY: ${{ secrets.AUTH_SECRET_KEY }}
         run: |
           kubectl run alembic-migrate-${{ github.run_id }} \
             --image=${{ env.IMAGE_PREFIX }}/auth-service:${{ github.sha }} \
             --restart=Never \
             --namespace=textara \
-            --env="DATABASE_URL=${{ secrets.AUTH_DATABASE_URL }}" \
-            --env="SECRET_KEY=${{ secrets.AUTH_SECRET_KEY }}" \
+            --env="DATABASE_URL=$AUTH_DATABASE_URL" \
+            --env="SECRET_KEY=$AUTH_SECRET_KEY" \
             --overrides='{"spec":{"imagePullSecrets":[{"name":"ghcr-credentials"}]}}' \
             --command -- .venv/bin/alembic upgrade head
           kubectl wait pod/alembic-migrate-${{ github.run_id }} \
@@ -101,40 +104,54 @@ jobs:
           kubectl delete pod alembic-migrate-${{ github.run_id }} --namespace=textara
 
       - name: Sync Kubernetes secrets
+        env:
+          AUTH_DATABASE_URL: ${{ secrets.AUTH_DATABASE_URL }}
+          AUTH_SECRET_KEY: ${{ secrets.AUTH_SECRET_KEY }}
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          RABBITMQ_PASS: ${{ secrets.RABBITMQ_PASS }}
+          R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
         run: |
           kubectl create secret generic auth-service-secret \
-            --from-literal=DATABASE_URL="${{ secrets.AUTH_DATABASE_URL }}" \
-            --from-literal=SECRET_KEY="${{ secrets.AUTH_SECRET_KEY }}" \
-            --from-literal=SENDGRID_API_KEY="${{ secrets.SENDGRID_API_KEY }}" \
+            --from-literal=DATABASE_URL="$AUTH_DATABASE_URL" \
+            --from-literal=SECRET_KEY="$AUTH_SECRET_KEY" \
+            --from-literal=SENDGRID_API_KEY="$SENDGRID_API_KEY" \
             --namespace=textara --dry-run=client -o yaml | kubectl apply -f -
 
           kubectl create secret generic doc-manager-secret \
-            --from-literal=SECRET_KEY="${{ secrets.AUTH_SECRET_KEY }}" \
-            --from-literal=RABBITMQ_PASS="${{ secrets.RABBITMQ_PASS }}" \
-            --from-literal=R2_ENDPOINT_URL="${{ secrets.R2_ENDPOINT_URL }}" \
-            --from-literal=R2_ACCESS_KEY_ID="${{ secrets.R2_ACCESS_KEY_ID }}" \
-            --from-literal=R2_SECRET_ACCESS_KEY="${{ secrets.R2_SECRET_ACCESS_KEY }}" \
-            --from-literal=R2_BUCKET_NAME="${{ secrets.R2_BUCKET_NAME }}" \
-            --from-literal=MODAL_TOKEN_ID="${{ secrets.MODAL_TOKEN_ID }}" \
-            --from-literal=MODAL_TOKEN_SECRET="${{ secrets.MODAL_TOKEN_SECRET }}" \
+            --from-literal=SECRET_KEY="$AUTH_SECRET_KEY" \
+            --from-literal=RABBITMQ_PASS="$RABBITMQ_PASS" \
+            --from-literal=R2_ENDPOINT_URL="$R2_ENDPOINT_URL" \
+            --from-literal=R2_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" \
+            --from-literal=R2_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
+            --from-literal=R2_BUCKET_NAME="$R2_BUCKET_NAME" \
+            --from-literal=MODAL_TOKEN_ID="$MODAL_TOKEN_ID" \
+            --from-literal=MODAL_TOKEN_SECRET="$MODAL_TOKEN_SECRET" \
             --namespace=textara --dry-run=client -o yaml | kubectl apply -f -
 
           kubectl create secret generic rabbitmq-secret \
-            --from-literal=RABBITMQ_DEFAULT_PASS="${{ secrets.RABBITMQ_PASS }}" \
+            --from-literal=RABBITMQ_DEFAULT_PASS="$RABBITMQ_PASS" \
             --namespace=textara --dry-run=client -o yaml | kubectl apply -f -
 
           kubectl create secret docker-registry ghcr-credentials \
             --docker-server=ghcr.io \
             --docker-username=${{ github.actor }} \
-            --docker-password=${{ secrets.GHCR_TOKEN }} \
+            --docker-password="$GHCR_TOKEN" \
             --namespace=textara --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Inject GOOGLE_CLIENT_ID into configmap
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
         run: |
           kubectl patch configmap auth-service-config \
             --namespace=textara \
             --type=merge \
-            -p '{"data": {"GOOGLE_CLIENT_ID": "${{ secrets.GOOGLE_CLIENT_ID }}"}}'
+            -p "{\"data\": {\"GOOGLE_CLIENT_ID\": \"$GOOGLE_CLIENT_ID\"}}"
 
       - name: Apply Kubernetes manifests
         # k8s/local/ is local-dev-only (postgres), never applied to prod
