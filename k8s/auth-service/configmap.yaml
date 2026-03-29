@@ -10,6 +10,6 @@ data:
   FRONTEND_BASE_URL: "https://textara.app"
   REGISTER_RATE_LIMIT: "5/minute"
   LOGIN_RATE_LIMIT: "5/minute"
-  CORS_ORIGINS: "https://textara.app,https://www.textara.app"
+  CORS_ORIGINS: '["https://textara.app","https://www.textara.app"]'
   # Injected at deploy time via CI secret GOOGLE_CLIENT_ID
   GOOGLE_CLIENT_ID: ""
