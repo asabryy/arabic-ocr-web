@@ -144,15 +144,6 @@ jobs:
             --docker-password="$GHCR_TOKEN" \
             --namespace=textara --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Inject GOOGLE_CLIENT_ID into configmap
-        env:
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-        run: |
-          kubectl patch configmap auth-service-config \
-            --namespace=textara \
-            --type=merge \
-            -p "{\"data\": {\"GOOGLE_CLIENT_ID\": \"$GOOGLE_CLIENT_ID\"}}"
-
       - name: Apply Kubernetes manifests
         # k8s/local/ is local-dev-only (postgres), never applied to prod
         # secret.yaml files are templates only — real values already written by Sync step above
@@ -170,6 +161,15 @@ jobs:
           kubectl apply -f k8s/doc-manager/service.yaml --namespace=textara
           kubectl apply -f k8s/doc-worker/ --namespace=textara
           kubectl apply -f k8s/frontend/ --namespace=textara
+
+      - name: Inject GOOGLE_CLIENT_ID into configmap
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+        run: |
+          kubectl patch configmap auth-service-config \
+            --namespace=textara \
+            --type=merge \
+            -p "{\"data\": {\"GOOGLE_CLIENT_ID\": \"$GOOGLE_CLIENT_ID\"}}"
 
       - name: Pin deployments to SHA image
         run: |
