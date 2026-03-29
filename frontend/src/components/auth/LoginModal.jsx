@@ -1,65 +1,113 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { GoogleLogin } from "@react-oauth/google";
+import toast from "react-hot-toast";
 import Modal from "../ui/Modal";
-import Input from "../ui/Input";
-import Button from "../ui/Button";
 import { useAuth } from "../../auth/AuthContext";
-import { loginUser } from "../../features/auth/authservice";
+import { loginUser, googleAuth } from "../../features/auth/authservice";
 
 const LoginModal = ({ isOpen, onClose }) => {
-  const { login } = useAuth();  // Only use login from context
+  const { t } = useTranslation();
+  const { login } = useAuth();
+  const navigate = useNavigate();
   const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const navigate = useNavigate();
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError("");
-
     try {
-      const accessToken = await loginUser(form);   // Just get token
-      await login(accessToken);                    // Let context handle storage + fetching user
+      const token = await loginUser(form);
+      await login(token);
       onClose();
-      navigate("/dashboard");                                   
+      navigate("/dashboard");
     } catch (err) {
-      console.error(err);
-      setError(err?.response?.data?.detail || err.message || "Login failed");
+      toast.error(err?.response?.data?.detail || "Incorrect email or password.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogle = async ({ credential }) => {
+    setLoading(true);
+    try {
+      const token = await googleAuth(credential);
+      await login(token);
+      onClose();
+      navigate("/dashboard");
+    } catch {
+      toast.error("Google sign-in failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Log In to TextAra">
-      <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-        <Input
-          label="Email"
-          type="email"
-          name="email"
-          value={form.email}
-          onChange={handleChange}
-          required
-        />
-        <Input
-          label="Password"
-          type="password"
-          name="password"
-          value={form.password}
-          onChange={handleChange}
-          required
-        />
-        {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
-
-        <Button type="submit" disabled={loading} className="w-full">
-          {loading ? "Logging in..." : "Login"}
-        </Button>
-      </form>
+    <Modal isOpen={isOpen} onClose={onClose} title={t("auth.login.title")}>
+      <div className="space-y-5">
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">{t("auth.login.subtitle")}</p>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
+              {t("auth.login.email")}
+            </label>
+            <input
+              type="email"
+              required
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              className="w-full px-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                {t("auth.login.password")}
+              </label>
+              <Link
+                to="/forgot-password"
+                onClick={onClose}
+                className="text-xs text-indigo-500 dark:text-indigo-400 hover:underline"
+              >
+                {t("auth.login.forgotPassword")}
+              </Link>
+            </div>
+            <input
+              type="password"
+              required
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              className="w-full px-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-2.5 text-sm font-medium rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white transition-colors disabled:opacity-60"
+          >
+            {loading ? t("auth.login.submitting") : t("auth.login.submit")}
+          </button>
+        </form>
+        <div className="relative flex items-center gap-3">
+          <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-700" />
+          <span className="text-xs text-zinc-400">{t("auth.signup.orContinueWith")}</span>
+          <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-700" />
+        </div>
+        <div className="flex justify-center">
+          <GoogleLogin onSuccess={handleGoogle} onError={() => toast.error("Google sign-in failed.")} />
+        </div>
+        <p className="text-center text-sm text-zinc-500 dark:text-zinc-400">
+          {t("auth.login.noAccount")}{" "}
+          <Link
+            to="/signup"
+            onClick={onClose}
+            className="text-indigo-500 hover:text-indigo-600 font-medium transition-colors"
+          >
+            {t("auth.login.createOne")}
+          </Link>
+        </p>
+      </div>
     </Modal>
   );
 };

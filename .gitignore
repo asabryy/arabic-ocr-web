@@ -6,11 +6,17 @@ GETTING_STARTED.pdf
 layout-backend
 ocr-backend
 *.env
+.env.*
 /k8s/base/auth-secrets.yaml.local
 /k8s/base/ocr-secrets.yaml
 /k8s/app-secrets.yaml
 ocr
 **/*venv*/
+# Local dev / tooling — never commit
+CLAUDE.md
+.claude/
+notebooks/
+frontend/.vite/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

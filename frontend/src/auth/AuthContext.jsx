@@ -1,4 +1,3 @@
-// src/auth/AuthContext.js
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { getCurrentUser } from "../features/auth/authservice";
 
@@ -6,17 +5,21 @@ const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    if (token) {
-      getCurrentUser(token)
-        .then((userData) => setUser(userData))
-        .catch((err) => {
-          console.error("Failed to fetch current user:", err);
+    const stored = localStorage.getItem("access_token");
+    if (stored) {
+      getCurrentUser(stored)
+        .then((userData) => {
+          setUser(userData);
+          setToken(stored);
+        })
+        .catch(() => {
           localStorage.removeItem("access_token");
           setUser(null);
+          setToken(null);
         })
         .finally(() => setLoading(false));
     } else {
@@ -24,24 +27,25 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const login = async (token) => {
-    localStorage.setItem("access_token", token);
+  const login = async (newToken) => {
+    localStorage.setItem("access_token", newToken);
     try {
-      const userData = await getCurrentUser(token);
+      const userData = await getCurrentUser(newToken);
       setUser(userData);
-    } catch (err) {
-      console.error("Login failed:", err);
+      setToken(newToken);
+    } catch {
       logout();
     }
   };
 
   const logout = () => {
+    setToken(null);
     setUser(null);
     localStorage.removeItem("access_token");
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, token, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

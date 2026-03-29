@@ -19,8 +19,8 @@ function VerifyEmail() {
     const verify = async () => {
       try {
         await authApi.get(`/verify-email?token=${token}`);
-        setMessage("✅ Email verified! Redirecting to login...");
-        setTimeout(() => navigate("/login"), 2000);
+        setMessage("✅ Email verified! Redirecting...");
+        setTimeout(() => navigate("/"), 2500);
       } catch (err) {
         setMessage("❌ Verification failed. Link may be expired.");
       }

@@ -1,14 +1,21 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
-import Sidebar from "../components/layout/Sidebar";
 import TopNavbar from "../components/layout/TopNavbar";
+import Sidebar from "../components/layout/Sidebar";
 
 function MainLayout({ children, openLogin, openRegister }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsSidebarOpen(window.innerWidth >= 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -16,8 +23,7 @@ function MainLayout({ children, openLogin, openRegister }) {
   };
 
   return (
-    <div className="min-h-screen w-full font-sans bg-background text-content dark:bg-background-dark dark:text-content-light">
-      {/* Top Navbar */}
+    <div className="min-h-screen w-full bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-sans">
       <TopNavbar
         isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
@@ -26,24 +32,22 @@ function MainLayout({ children, openLogin, openRegister }) {
         openLogin={openLogin}
         openRegister={openRegister}
       />
-
-      {/* Sidebar */}
-      <Sidebar isOpen={isSidebarOpen} />
-
-      {/* Main Content */}
+      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       <div
-        className={`pt-16 transition-all duration-300 ease-in-out
-          ${isSidebarOpen ? "lg:ml-64" : "lg:ml-0"}
-          min-h-[calc(100vh-4rem)] overflow-y-auto flex flex-col
-        `}
+        className={`pt-14 transition-[margin] duration-300 ease-in-out min-h-screen ${
+          isSidebarOpen
+            ? "lg:ml-60 rtl:lg:ml-0 rtl:lg:mr-60"
+            : "ml-0 rtl:mr-0"
+        }`}
       >
-        <main className="flex-grow p-6">{children}</main>
-        <footer className="bg-primary-dark text-content-light text-center py-4">
-          <p className="text-sm">
-            &copy; {new Date().getFullYear()} TextAra. All rights reserved.
-          </p>
-        </footer>
+        <main className="p-6 max-w-6xl mx-auto">{children}</main>
       </div>
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/30 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
+import clsx from "clsx";
 
-const DarkModeToggle = () => {
+const DarkModeToggle = ({ className }) => {
   const [isDark, setIsDark] = useState(() => {
-    return localStorage.getItem("theme") === "dark";
+    const theme = localStorage.getItem("theme");
+    return theme ? theme === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
   });
 
   useEffect(() => {
@@ -17,17 +19,18 @@ const DarkModeToggle = () => {
     }
   }, [isDark]);
 
-  const toggleDarkMode = () => {
-    setIsDark(!isDark);
-  };
-
   return (
     <button
-      onClick={toggleDarkMode}
-      className="text-white hover:text-secondary transition-colors p-2"
+      onClick={() => setIsDark(!isDark)}
+      className={clsx(
+        "p-2 rounded-lg transition-colors",
+        "text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200",
+        "hover:bg-zinc-100 dark:hover:bg-zinc-800",
+        className
+      )}
       aria-label="Toggle dark mode"
     >
-      {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+      {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
     </button>
   );
 };

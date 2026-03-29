@@ -35,7 +35,6 @@ class Settings(BaseSettings):
 
     # CORS — comma-separated list of allowed origins
     CORS_ORIGINS: list[str] = [
-        "https://textara.netlify.app",
         "https://textara.app",
         "https://www.textara.app",
     ]

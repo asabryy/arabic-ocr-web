@@ -1,0 +1,193 @@
+{
+  "nav": {
+    "pricing": "Pricing",
+    "signIn": "Sign in",
+    "getStarted": "Get started free",
+    "start": "Sign up"
+  },
+  "sidebar": {
+    "dashboard": "Dashboard",
+    "convert": "Convert",
+    "translate": "Translate",
+    "authenticate": "Authenticate",
+    "pricing": "Pricing",
+    "settings": "Settings"
+  },
+  "landing": {
+    "badge": "Arabic OCR · Powered by Qwen2-VL",
+    "heroTitle1": "Arabic PDFs to",
+    "heroTitle2": "editable DOCX",
+    "heroTitle3": "with precision",
+    "heroSubtitle": "Textara converts Arabic PDF documents into structured, right-to-left Word files — preserving layout, headers, and formatting automatically.",
+    "heroCta": "Get started free",
+    "heroSignIn": "Sign in",
+    "heroNote": "Free up to 50 pages/month · No credit card required",
+    "featuresTitle": "Built for Arabic documents",
+    "featuresSubtitle": "Not a generic OCR tool with Arabic as an afterthought — every part of the pipeline is designed for right-to-left text.",
+    "howTitle": "How it works",
+    "howSubtitle": "Three steps from PDF to editable Word document.",
+    "ctaTitle": "Start converting today",
+    "ctaSubtitle": "Create a free account and convert your first Arabic PDF in under a minute.",
+    "ctaButton": "Create free account",
+    "footerCopy": "© {{year}} Textara",
+    "features": {
+      "rtl": {
+        "title": "Full RTL support",
+        "desc": "Preserves right-to-left direction and bidirectionality in exported DOCX files with high fidelity across all Arabic dialects."
+      },
+      "layout": {
+        "title": "Smart layout detection",
+        "desc": "Advanced Detectron2 models identify columns, headers, paragraphs, and titles to reconstruct the original document structure."
+      },
+      "gpu": {
+        "title": "GPU-powered OCR",
+        "desc": "Runs on dedicated A10G GPUs via Modal. The Qari model processes each page with high accuracy and low hallucination rate."
+      },
+      "cloud": {
+        "title": "Cloud storage",
+        "desc": "Your files are stored securely on Cloudflare R2. Download the original PDF or the converted DOCX any time."
+      }
+    },
+    "steps": {
+      "upload": {
+        "title": "Upload your PDF",
+        "body": "Drag and drop any Arabic PDF — scanned documents, books, reports, or forms."
+      },
+      "process": {
+        "title": "AI processes it",
+        "body": "The pipeline detects layout regions and runs OCR on each section in correct reading order."
+      },
+      "download": {
+        "title": "Download DOCX",
+        "body": "Get a clean, editable Word document with correct RTL formatting, ready to use immediately."
+      }
+    }
+  },
+  "userMenu": {
+    "dashboard": "Dashboard",
+    "settings": "Settings",
+    "signOut": "Sign out",
+    "signIn": "Sign in",
+    "createAccount": "Create account"
+  },
+  "dashboard": {
+    "welcomeBack": "Welcome back, {{name}}",
+    "title": "Dashboard",
+    "subtitle": "Your overview at a glance.",
+    "recentConversions": "Recent Conversions",
+    "goToConvert": "Go to Convert",
+    "viewAll": "View all {{count}} files",
+    "stats": {
+      "total": "Total",
+      "converting": "Converting",
+      "converted": "Converted",
+      "failed": "Failed"
+    },
+    "empty": {
+      "title": "No conversions yet",
+      "body": "Upload an Arabic PDF on the Convert page and run OCR to get an editable Word document.",
+      "cta": "Start converting"
+    }
+  },
+  "convert": {
+    "title": "Convert",
+    "subtitle": "Upload Arabic PDFs and convert them to editable Word documents.",
+    "yourFiles": "Your Files",
+    "fileCount_one": "{{count}} file",
+    "fileCount_other": "{{count}} files",
+    "previewLoading": "Loading preview…",
+    "onlyPdf": "Only PDF files are supported.",
+    "tooLarge": "File must be under 50 MB.",
+    "dropzone": {
+      "title": "Drop your PDF here",
+      "subtitle": "PDF only · max 50 MB",
+      "browse": "Browse file"
+    },
+    "status": {
+      "pending": "Pending",
+      "processing": "Converting",
+      "done": "Done",
+      "failed": "Failed"
+    },
+    "actions": {
+      "convert": "Convert",
+      "retry": "Retry",
+      "downloadPdf": "Download PDF",
+      "delete": "Delete"
+    },
+    "toasts": {
+      "uploaded": "\"{{filename}}\" uploaded.",
+      "done": "\"{{filename}}\" conversion complete!",
+      "failed": "\"{{filename}}\" conversion failed.",
+      "deleted": "Document deleted."
+    },
+    "errors": {
+      "loadFailed": "Failed to load documents.",
+      "uploadFailed": "Upload failed. Please try again.",
+      "convertFailed": "Failed to queue conversion.",
+      "previewFailed": "Failed to load preview.",
+      "deleteFailed": "Failed to delete document."
+    },
+    "empty": {
+      "title": "No files yet",
+      "body": "Upload an Arabic PDF above to get started."
+    }
+  },
+  "fileExplorer": {
+    "loading": "Loading…",
+    "documents_one": "{{count}} document",
+    "documents_other": "{{count}} documents",
+    "uploadPdf": "Upload PDF",
+    "downloadPdf": "Download PDF",
+    "previewLoading": "Loading preview…",
+    "status": {
+      "pending": "Pending",
+      "processing": "Converting",
+      "done": "Done",
+      "failed": "Failed"
+    },
+    "empty": {
+      "title": "Convert your first document",
+      "body": "Upload an Arabic PDF and Textara will convert it to an editable Word document, preserving layout and RTL text.",
+      "upload": "Upload PDF",
+      "note": "PDF only · max 50 MB · free up to 50 pages/month"
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Welcome back",
+      "subtitle": "Sign in to your account",
+      "email": "Email",
+      "password": "Password",
+      "forgotPassword": "Forgot password?",
+      "submit": "Sign in",
+      "submitting": "Signing in…",
+      "noAccount": "Don't have an account?",
+      "createOne": "Create one"
+    },
+    "signup": {
+      "title": "Create your account",
+      "subtitle": "Start converting Arabic PDFs for free",
+      "name": "Full name",
+      "email": "Email",
+      "password": "Password",
+      "confirmPassword": "Confirm password",
+      "submit": "Create account",
+      "submitting": "Creating account…",
+      "hasAccount": "Already have an account?",
+      "signIn": "Sign in",
+      "checkInboxTitle": "Check your inbox",
+      "checkInboxBody": "We sent a verification link to <strong>{{email}}</strong>. Click it to activate your account.",
+      "backToSignIn": "Back to sign in",
+      "orContinueWith": "Or continue with",
+      "orSignUpWith": "Or sign up with"
+    },
+    "password": {
+      "minLength": "At least 8 characters",
+      "uppercase": "At least one uppercase letter",
+      "number": "At least one number",
+      "special": "At least one special character",
+      "mismatch": "Passwords do not match"
+    }
+  }
+}

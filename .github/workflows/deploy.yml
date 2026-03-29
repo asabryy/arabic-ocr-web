@@ -131,6 +131,7 @@ jobs:
         run: |
           kubectl apply -f k8s/namespace.yaml
           kubectl apply -f k8s/ingress.yaml --namespace=textara
+          kubectl apply -f k8s/www-redirect.yaml --namespace=textara
           kubectl apply -f k8s/cert-manager/ --namespace=textara
           kubectl apply -f k8s/rabbitmq/ --namespace=textara
           kubectl apply -f k8s/auth-service/ --namespace=textara

@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: www-redirect
+  namespace: textara
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/permanent-redirect: "https://textara.app$request_uri"
+    nginx.ingress.kubernetes.io/permanent-redirect-code: "301"
+spec:
+  tls:
+    - hosts:
+        - www.textara.app
+      secretName: textara-tls
+  rules:
+    - host: www.textara.app
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
