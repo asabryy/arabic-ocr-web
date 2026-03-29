@@ -76,6 +76,14 @@ jobs:
           echo "${{ secrets.KUBECONFIG }}" | base64 -d > /tmp/kubeconfig
           echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
 
+      - name: Refresh GHCR pull secret
+        run: |
+          kubectl create secret docker-registry ghcr-credentials \
+            --docker-server=ghcr.io \
+            --docker-username=${{ github.actor }} \
+            --docker-password=${{ secrets.GHCR_TOKEN }} \
+            --namespace=textara --dry-run=client -o yaml | kubectl apply -f -
+
       - name: Run Alembic migrations
         run: |
           kubectl run alembic-migrate-${{ github.run_id }} \
@@ -83,6 +91,7 @@ jobs:
             --restart=Never \
             --namespace=textara \
             --env="DATABASE_URL=${{ secrets.AUTH_DATABASE_URL }}" \
+            --overrides='{"spec":{"imagePullSecrets":[{"name":"ghcr-credentials"}]}}' \
             --command -- .venv/bin/alembic upgrade head
           kubectl wait pod/alembic-migrate-${{ github.run_id }} \
             --for=condition=Ready --timeout=60s --namespace=textara || true
