@@ -31,7 +31,8 @@ jobs:
           context: ./auth-service
           push: true
           platforms: linux/arm64
-          no-cache: true
+          cache-from: type=gha,scope=auth-service
+          cache-to: type=gha,mode=max,scope=auth-service
           tags: |
             ${{ env.IMAGE_PREFIX }}/auth-service:latest
             ${{ env.IMAGE_PREFIX }}/auth-service:${{ github.sha }}
@@ -42,7 +43,8 @@ jobs:
           context: ./doc-manager
           push: true
           platforms: linux/arm64
-          no-cache: true
+          cache-from: type=gha,scope=doc-manager
+          cache-to: type=gha,mode=max,scope=doc-manager
           tags: |
             ${{ env.IMAGE_PREFIX }}/doc-manager:latest
             ${{ env.IMAGE_PREFIX }}/doc-manager:${{ github.sha }}
@@ -53,7 +55,8 @@ jobs:
           context: ./frontend
           push: true
           platforms: linux/arm64
-          no-cache: true
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
           tags: |
             ${{ env.IMAGE_PREFIX }}/frontend:latest
             ${{ env.IMAGE_PREFIX }}/frontend:${{ github.sha }}
