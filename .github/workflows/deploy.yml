@@ -94,6 +94,7 @@ jobs:
             --restart=Never \
             --namespace=textara \
             --env="DATABASE_URL=${{ secrets.AUTH_DATABASE_URL }}" \
+            --env="SECRET_KEY=${{ secrets.AUTH_SECRET_KEY }}" \
             --overrides='{"spec":{"imagePullSecrets":[{"name":"ghcr-credentials"}]}}' \
             --command -- .venv/bin/alembic upgrade head
           kubectl wait pod/alembic-migrate-${{ github.run_id }} \
