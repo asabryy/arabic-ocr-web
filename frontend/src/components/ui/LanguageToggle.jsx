@@ -9,7 +9,7 @@ const LanguageToggle = () => {
     <button
       onClick={() => i18n.changeLanguage(isAr ? "en" : "ar")}
       title={isAr ? "Switch to English" : "التبديل إلى العربية"}
-      className="flex items-center justify-center w-8 h-8 rounded-lg text-sm font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+      className="flex items-center justify-center w-7 h-7 text-xs font-semibold text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"
     >
       {isAr ? "EN" : "ع"}
     </button>

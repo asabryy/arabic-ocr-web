@@ -16,10 +16,11 @@ function Modal({ isOpen, onClose, title, children }) {
         className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-md animate-slide-up glass-card rounded-2xl shadow-2xl shadow-black/30 overflow-hidden">
+      <div className="relative w-full max-w-md animate-slide-up bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 border-t-2 border-t-indigo-500 shadow-2xl shadow-black/30 overflow-hidden" style={{ borderRadius: 2 }}>
         {title && (
-          <div className="px-6 pt-6 pb-4 border-b border-zinc-100 dark:border-zinc-800">
+          <div className="px-6 pt-5 pb-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
             <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{title}</h2>
+            <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors text-lg leading-none">×</button>
           </div>
         )}
         <div className="p-6">{children}</div>

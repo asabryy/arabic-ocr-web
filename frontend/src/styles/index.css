@@ -2,72 +2,191 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   DESIGN TOKEN SYSTEM
+   CSS custom properties → Tailwind semantic color names.
+   All tokens are defined here in one place.
+   Light values live in :root, dark values in .dark.
+   Components use semantic names (bg-surface, text-foreground…)
+   so they automatically adapt — no dark: variants needed.
+   ============================================================ */
+
 @layer base {
+
+  :root {
+    /* ── Surfaces ─────────────────────────────────────────── */
+    --background:      0 0% 100%;          /* page bg        */
+    --foreground:      240 10% 3.9%;       /* primary text   */
+
+    --surface:         0 0% 100%;          /* card / panel   */
+    --surface-raised:  0 0% 100%;          /* dropdown, popover */
+
+    --inset:           240 4.8% 95.9%;     /* table header, code block */
+    --muted:           240 4.8% 95.9%;     /* hover, tag bg  */
+    --muted-foreground: 240 3.7% 44.1%;   /* secondary text */
+    --subtle:          240 5% 64.9%;       /* placeholder, timestamps */
+
+    /* ── Borders ──────────────────────────────────────────── */
+    --border:          240 5.9% 90%;       /* default border */
+    --border-strong:   240 4.9% 83.9%;     /* emphasis border */
+
+    /* ── Accent (indigo-500 primary action) ───────────────── */
+    --accent:          239 84.2% 67.1%;
+    --accent-foreground: 0 0% 100%;
+    --accent-subtle:   239 68% 95%;        /* hover / selected tint */
+    --accent-hover:    243 75% 58.8%;      /* indigo-600 */
+
+    /* ── Status ───────────────────────────────────────────── */
+    --success:         142 71% 45.1%;
+    --success-subtle:  141 84% 93%;
+
+    --warning:         38 92% 50%;
+    --warning-subtle:  48 96% 89%;
+
+    --error:           0 84.2% 60.2%;
+    --error-subtle:    0 86% 93%;
+  }
+
+  .dark {
+    /* ── Surfaces ─────────────────────────────────────────── */
+    --background:      240 10% 3.9%;       /* zinc-950 */
+    --foreground:      0 0% 98%;           /* zinc-50  */
+
+    --surface:         240 5.9% 10%;       /* zinc-900 */
+    --surface-raised:  240 3.7% 15.9%;     /* zinc-800 */
+
+    --inset:           240 10% 3.9%;       /* slightly darker than surface */
+    --muted:           240 3.7% 15.9%;     /* zinc-800 */
+    --muted-foreground: 240 5% 64.9%;      /* zinc-400 */
+    --subtle:          240 3.7% 44.1%;     /* zinc-500 */
+
+    /* ── Borders ──────────────────────────────────────────── */
+    --border:          240 3.7% 15.9%;     /* zinc-800 */
+    --border-strong:   240 5.3% 26.1%;     /* zinc-700 */
+
+    /* ── Accent ───────────────────────────────────────────── */
+    --accent:          239 84.2% 67.1%;    /* indigo-500 — same */
+    --accent-foreground: 0 0% 100%;
+    --accent-subtle:   244 62% 17%;        /* very dark indigo tint */
+    --accent-hover:    234 89% 73.9%;      /* indigo-400 (lighter in dark) */
+
+    /* ── Status ───────────────────────────────────────────── */
+    --success:         160 84% 39.4%;
+    --success-subtle:  162 94% 7%;
+
+    --warning:         38 92% 50%;
+    --warning-subtle:  33 91% 9%;
+
+    --error:           0 84.2% 60.2%;
+    --error-subtle:    0 63% 8%;
+  }
+
+  /* Base text & background from tokens */
   html {
     @apply font-sans;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
   }
 
   body {
     @apply font-sans;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
   }
 }
 
+/* ============================================================
+   COMPONENT CLASSES
+   Use semantic tokens so dark mode is automatic.
+   ============================================================ */
+
 @layer components {
-  .glass {
-    background-color: rgba(255, 255, 255, 0.8);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
+
+  /* ── Cards ────────────────────────────────────────────────── */
+  .studio-card {
+    @apply bg-surface border border-border;
+    border-radius: 2px;
   }
 
-  .dark .glass {
-    background-color: rgba(9, 9, 11, 0.8);
+  .studio-card-accent {
+    @apply studio-card border-t-2 border-t-accent;
   }
 
-  .glass-card {
-    @apply border border-zinc-200/80 bg-white;
+  /* ── Section rule heading ──────────────────────────────────── */
+  .section-label {
+    @apply text-[10px] font-semibold tracking-[0.18em] uppercase text-muted-foreground;
   }
 
-  .dark .glass-card {
-    @apply border-zinc-800 bg-zinc-900;
+  /* ── Table row ─────────────────────────────────────────────── */
+  .table-row-item {
+    @apply flex items-center gap-3 px-4 py-3 border-b border-border
+           hover:bg-muted transition-colors last:border-0;
+  }
+
+  /* ── Status pills ──────────────────────────────────────────── */
+  .status-done       { @apply text-[10px] font-semibold tracking-wide uppercase text-success; }
+  .status-processing { @apply text-[10px] font-semibold tracking-wide uppercase text-accent; }
+  .status-pending    { @apply text-[10px] font-semibold tracking-wide uppercase text-muted-foreground; }
+  .status-failed     { @apply text-[10px] font-semibold tracking-wide uppercase text-error; }
+
+  /* ── Input ─────────────────────────────────────────────────── */
+  .field-input {
+    @apply w-full px-3 py-2 text-sm
+           bg-surface text-foreground
+           border border-border
+           focus:outline-none focus:border-accent
+           focus:ring-0
+           placeholder:text-subtle;
+    border-radius: 2px;
+  }
+
+  /* ── Buttons ───────────────────────────────────────────────── */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2
+           text-sm font-medium text-accent-foreground bg-accent
+           hover:bg-accent-hover
+           transition-colors disabled:opacity-50;
+    border-radius: 2px;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2
+           text-sm font-medium
+           text-foreground
+           bg-transparent border border-border
+           hover:border-border-strong
+           hover:bg-muted
+           transition-colors disabled:opacity-50;
+    border-radius: 2px;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2
+           text-sm font-medium text-error
+           border border-error/30
+           hover:bg-error-subtle
+           transition-colors disabled:opacity-50;
+    border-radius: 2px;
+  }
+
+  /* ── Skeleton ──────────────────────────────────────────────── */
+  .skel {
+    @apply bg-muted animate-pulse;
+    border-radius: 2px;
   }
 }
 
 @layer utilities {
-  .animate-fade-in {
-    animation: fadeIn 0.15s ease-out;
-  }
-
-  .animate-scale-in {
-    animation: scaleIn 0.15s ease-out;
-  }
-
-  .animate-slide-up {
-    animation: slideUp 0.2s ease-out;
-  }
+  .animate-fade-in  { animation: fadeIn  0.2s ease-out; }
+  .animate-slide-up { animation: slideUp 0.25s ease-out; }
 }
 
 @keyframes fadeIn {
   from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.97); }
-  to { opacity: 1; transform: scale(1); }
+  to   { opacity: 1; }
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.text-gradient {
-  background-image: linear-gradient(to right, #6366f1, #8b5cf6, #a855f7);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-.hero-glow {
-  background: radial-gradient(ellipse 80% 50% at 50% -5%, rgba(99, 102, 241, 0.13), transparent 70%);
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
