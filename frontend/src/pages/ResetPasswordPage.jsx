@@ -1,26 +1,32 @@
 import React, { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { Eye, EyeOff, CheckCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import { resetPassword } from "../features/auth/authservice";
+
+const PASSWORD_RULES = [
+  { key: "minLength", label: "At least 8 characters",        test: (p) => p.length >= 8 },
+  { key: "uppercase", label: "One uppercase letter (A–Z)",   test: (p) => /[A-Z]/.test(p) },
+  { key: "number",    label: "One number (0–9)",             test: (p) => /[0-9]/.test(p) },
+  { key: "special",   label: "One special character (!@#…)", test: (p) => /[^A-Za-z0-9]/.test(p) },
+];
 
 function ResetPasswordPage() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token") ?? "";
   const [form, setForm] = useState({ new_password: "", confirm: "" });
+  const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
 
   if (!token) {
     return (
       <div className="text-center space-y-4">
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Invalid link</h1>
-        <p className="text-zinc-500 dark:text-zinc-400 text-sm">
+        <h1 className="text-2xl font-bold tracking-tight">Invalid link</h1>
+        <p className="text-sm text-muted-foreground">
           This password reset link is missing a token.
         </p>
-        <Link
-          to="/forgot-password"
-          className="text-sm text-indigo-500 hover:text-indigo-600 transition-colors"
-        >
+        <Link to="/forgot-password" className="text-sm text-accent hover:text-accent-hover transition-colors">
           Request a new link
         </Link>
       </div>
@@ -29,16 +35,17 @@ function ResetPasswordPage() {
 
   if (done) {
     return (
-      <div className="text-center space-y-4">
-        <div className="text-5xl">✅</div>
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Password updated</h1>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          Your password has been changed successfully.
-        </p>
-        <Link
-          to="/login"
-          className="inline-block text-sm font-medium text-indigo-500 hover:text-indigo-600 transition-colors"
-        >
+      <div className="text-center space-y-5">
+        <div className="w-12 h-12 bg-success-subtle flex items-center justify-center mx-auto" style={{ borderRadius: 2 }}>
+          <CheckCircle className="w-6 h-6 text-success" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Password updated</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Your password has been changed successfully.
+          </p>
+        </div>
+        <Link to="/login" className="inline-block text-sm font-medium text-accent hover:text-accent-hover transition-colors">
           Sign in
         </Link>
       </div>
@@ -47,6 +54,11 @@ function ResetPasswordPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const allPass = PASSWORD_RULES.every((r) => r.test(form.new_password));
+    if (!allPass) {
+      toast.error("Password doesn't meet the requirements.");
+      return;
+    }
     if (form.new_password !== form.confirm) {
       toast.error("Passwords do not match.");
       return;
@@ -62,29 +74,58 @@ function ResetPasswordPage() {
     }
   };
 
+  const passRules = PASSWORD_RULES.map((r) => ({ ...r, ok: r.test(form.new_password) }));
+  const strength = passRules.filter((r) => r.ok).length;
+  const strengthColor = ["bg-error", "bg-warning", "bg-warning", "bg-success", "bg-success"][strength];
+
   return (
     <div className="space-y-6">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Set new password</h1>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Set new password</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Choose a strong password for your account.
         </p>
       </div>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
+          <label className="block text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
             New password
           </label>
-          <input
-            type="password"
-            required
-            value={form.new_password}
-            onChange={(e) => setForm({ ...form, new_password: e.target.value })}
-            className="w-full px-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
+          <div className="relative">
+            <input
+              type={showPass ? "text" : "password"}
+              required
+              value={form.new_password}
+              onChange={(e) => setForm({ ...form, new_password: e.target.value })}
+              className="field-input pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPass(!showPass)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-subtle hover:text-muted-foreground transition-colors"
+            >
+              {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+          {form.new_password && (
+            <div className="mt-2 space-y-1.5">
+              <div className="flex gap-1 h-1">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className={`flex-1 transition-colors ${i < strength ? strengthColor : "bg-muted"}`} style={{ borderRadius: 1 }} />
+                ))}
+              </div>
+              <ul className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                {passRules.map((r) => (
+                  <li key={r.key} className={`text-[11px] flex items-center gap-1 ${r.ok ? "text-success" : "text-subtle"}`}>
+                    <span>{r.ok ? "✓" : "·"}</span>{r.label}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
         <div>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
+          <label className="block text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
             Confirm password
           </label>
           <input
@@ -92,14 +133,13 @@ function ResetPasswordPage() {
             required
             value={form.confirm}
             onChange={(e) => setForm({ ...form, confirm: e.target.value })}
-            className="w-full px-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="field-input"
           />
+          {form.confirm && form.confirm !== form.new_password && (
+            <p className="text-[11px] text-error mt-1">Passwords do not match.</p>
+          )}
         </div>
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full py-2.5 text-sm font-medium rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white transition-colors disabled:opacity-60"
-        >
+        <button type="submit" disabled={loading} className="btn-primary w-full py-2.5 justify-center">
           {loading ? "Updating…" : "Update password"}
         </button>
       </form>

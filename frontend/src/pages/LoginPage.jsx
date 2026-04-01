@@ -42,59 +42,48 @@ function LoginPage() {
 
   return (
     <div className="space-y-6">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{t("auth.login.title")}</h1>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">{t("auth.login.title")}</h1>
         <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{t("auth.login.subtitle")}</p>
       </div>
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
+          <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
             {t("auth.login.email")}
           </label>
-          <input
-            type="email"
-            required
-            value={form.email}
+          <input type="email" required value={form.email} placeholder="you@example.com"
             onChange={(e) => setForm({ ...form, email: e.target.value })}
-            className="w-full px-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
+            className="field-input" />
         </div>
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
               {t("auth.login.password")}
             </label>
-            <Link
-              to="/forgot-password"
-              className="text-xs text-indigo-500 dark:text-indigo-400 hover:underline"
-            >
+            <Link to="/forgot-password" className="text-xs text-indigo-500 hover:text-indigo-600 transition-colors">
               {t("auth.login.forgotPassword")}
             </Link>
           </div>
-          <input
-            type="password"
-            required
-            value={form.password}
+          <input type="password" required value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
-            className="w-full px-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
+            className="field-input" />
         </div>
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full py-2.5 text-sm font-medium rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white transition-colors disabled:opacity-60"
-        >
+        <button type="submit" disabled={loading} className="btn-primary w-full py-2.5 justify-center">
           {loading ? t("auth.login.submitting") : t("auth.login.submit")}
         </button>
       </form>
-      <div className="relative flex items-center gap-3">
-        <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-700" />
+
+      <div className="flex items-center gap-3">
+        <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-800" />
         <span className="text-xs text-zinc-400">{t("auth.signup.orContinueWith")}</span>
-        <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-700" />
+        <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-800" />
       </div>
+
       <div className="flex justify-center">
         <GoogleLogin onSuccess={handleGoogle} onError={() => toast.error("Google sign-in failed.")} />
       </div>
+
       <p className="text-center text-sm text-zinc-500 dark:text-zinc-400">
         {t("auth.login.noAccount")}{" "}
         <Link to="/signup" className="text-indigo-500 hover:text-indigo-600 font-medium transition-colors">
