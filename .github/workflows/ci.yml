@@ -19,16 +19,16 @@ jobs:
         with:
           context: ./auth-service
           push: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=auth-service
+          cache-to: type=gha,mode=max,scope=auth-service
 
       - name: Build doc-manager
         uses: docker/build-push-action@v5
         with:
           context: ./doc-manager
           push: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=doc-manager
+          cache-to: type=gha,mode=max,scope=doc-manager
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
