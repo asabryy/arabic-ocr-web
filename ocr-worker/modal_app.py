@@ -50,7 +50,7 @@ LORA_MODEL_ID = "NAMAA-Space/Qari-OCR-0.2.2.1-VL-2B-Instruct"
 DPI        = 100
 MAX_PIXELS = 1280 * 28 * 28   # ~1 M pixels — full A4 page fits without downscaling
 
-OCR_PROMPT = "Extract the plain text from this document image. No hallucination."
+OCR_PROMPT = "Read and transcribe every word of Arabic text visible in this image, preserving the original line breaks."
 
 
 @app.cls(
