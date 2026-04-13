@@ -33,6 +33,7 @@ image = (
         "Pillow",
         "python-docx",
     )
+    .add_local_file("ocr-worker/pipeline.py", "/root/pipeline.py")
 )
 
 app = modal.App("textara-ocr", image=image)
