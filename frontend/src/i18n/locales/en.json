@@ -113,6 +113,7 @@
       "convert": "Convert",
       "retry": "Retry",
       "downloadPdf": "Download PDF",
+      "downloadDocx": "Download DOCX",
       "delete": "Delete"
     },
     "toasts": {
