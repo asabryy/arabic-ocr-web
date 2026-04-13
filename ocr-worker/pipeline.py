@@ -74,9 +74,6 @@ def load_model():
 
     processor = AutoProcessor.from_pretrained(BASE_MODEL_ID, use_fast=True)
 
-    print("Compiling model (reduce-overhead)...")
-    model = torch.compile(model, mode="reduce-overhead", fullgraph=False)
-
     elapsed = time.time() - t0
     vram_gb = torch.cuda.memory_allocated() / 1e9 if torch.cuda.is_available() else 0
     print(f"Model ready in {elapsed:.1f}s | VRAM: {vram_gb:.2f} GB")
@@ -128,7 +125,7 @@ def ocr_page(image: Image.Image, model, processor) -> tuple:
         videos=video_inputs,
         padding=True,
         return_tensors="pt",
-    ).to(model.device)
+    ).to("cuda" if torch.cuda.is_available() else "cpu")
 
     with torch.inference_mode():
         ids = model.generate(
