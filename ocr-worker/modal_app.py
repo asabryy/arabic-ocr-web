@@ -33,21 +33,16 @@ image = (
         "Pillow",
         "python-docx",
     )
+    .add_local_file("ocr-worker/pipeline.py", "/root/pipeline.py")
 )
 
 app = modal.App("textara-ocr", image=image)
-
-pipeline_mount = modal.Mount.from_local_file(
-    local_path="ocr-worker/pipeline.py",
-    remote_path="/root/pipeline.py",
-)
 
 
 @app.cls(
     gpu="A10G",
     timeout=600,
     min_containers=0,
-    mounts=[pipeline_mount],
 )
 class OCRPipeline:
     @modal.enter()
