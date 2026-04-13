@@ -524,7 +524,7 @@ function ConvertPage() {
                               className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors"
                               style={{ borderRadius: 2 }}>
                               <Download className="w-3 h-3" />
-                              {t("convert.actions.downloadPdf")}
+                              {t("convert.actions.downloadDocx")}
                             </button>
                           )}
                           <button onClick={() => handleDelete(doc.filename)}
