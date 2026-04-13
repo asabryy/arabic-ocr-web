@@ -32,6 +32,8 @@ LORA_MODEL_ID = "NAMAA-Space/Qari-OCR-0.2.2.1-VL-2B-Instruct"
 
 # 150 DPI -> A4 page ~= 1241x1754 px = ~2.2M pixels.
 # MAX_PIXELS=4M lets the full page through without downscaling.
+# torch.compile (reduce-overhead) fuses ops and cuts inference memory ~60%,
+# making this viable on A10G (22 GB). Without compile it OOMs.
 DPI        = 150
 MAX_PIXELS = 1280 * 28 * 28 * 4
 
@@ -73,6 +75,9 @@ def load_model():
     model.eval()
 
     processor = AutoProcessor.from_pretrained(BASE_MODEL_ID, use_fast=True)
+
+    print("Compiling model (reduce-overhead)...")
+    model = torch.compile(model, mode="reduce-overhead", fullgraph=False)
 
     elapsed = time.time() - t0
     vram_gb = torch.cuda.memory_allocated() / 1e9 if torch.cuda.is_available() else 0
@@ -127,9 +132,7 @@ def ocr_page(image: Image.Image, model, processor) -> tuple:
         return_tensors="pt",
     ).to("cuda" if torch.cuda.is_available() else "cpu")
 
-    print(f"  [dbg] input_ids shape: {inputs['input_ids'].shape}, device: {inputs['input_ids'].device}")
-    print(f"  [dbg] image_inputs count: {len(image_inputs) if image_inputs else 0}")
-
+    torch.cuda.empty_cache()
     with torch.inference_mode():
         ids = model.generate(
             **inputs,
@@ -139,9 +142,6 @@ def ocr_page(image: Image.Image, model, processor) -> tuple:
         )
 
     trimmed = ids[:, inputs["input_ids"].shape[1]:]
-    print(f"  [dbg] total tokens: {ids.shape[1]}, new tokens: {trimmed.shape[1]}")
-    raw_text = processor.batch_decode(trimmed, skip_special_tokens=False)[0]
-    print(f"  [dbg] raw decode (no skip): {repr(raw_text[:200])}")
     text = processor.batch_decode(
         trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=True
     )[0].strip()
