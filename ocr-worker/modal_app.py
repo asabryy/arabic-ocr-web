@@ -17,18 +17,19 @@ import modal
 
 image = (
     modal.Image.debian_slim(python_version="3.11")
+    .env({"PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"})
     .apt_install(
         "libmupdf-dev",
         "mupdf-tools",
     )
     .pip_install(
         "numpy<2",
-        "torch==2.4.0",
-        "torchvision==0.19.0",
-        "transformers>=4.49.0",
-        "qwen-vl-utils",
+        "torch==2.6.0",
+        "torchvision==0.21.0",
+        "transformers==4.49.0",
+        "qwen-vl-utils==0.0.14",
         "accelerate>=0.26.0",
-        "peft",
+        "peft==0.18.1",
         "pymupdf",
         "Pillow",
         "python-docx",
@@ -47,8 +48,20 @@ app = modal.App("textara-ocr", image=image)
 class OCRPipeline:
     @modal.enter()
     def load_models(self):
-        from pipeline import load_model
+        import torch
+        from PIL import Image
+        from pipeline import load_model, ocr_page
+
         self.model, self.processor, _ = load_model()
+
+        # Warm up: trigger torch.compile graph capture at container startup.
+        # A4 at 150 DPI = 1241x1754 px — same shape as real pages so the
+        # compiled graph is reused on first real request instead of recompiling.
+        print("Warming up compiled model (A4 dummy image)...")
+        dummy = Image.new("RGB", (1241, 1754), color=255)
+        ocr_page(dummy, self.model, self.processor)
+        torch.cuda.empty_cache()
+        print("Warmup complete.")
 
     @modal.method()
     def process_pdf(self, pdf_bytes: bytes) -> bytes:
