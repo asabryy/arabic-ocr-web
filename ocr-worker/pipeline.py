@@ -127,6 +127,9 @@ def ocr_page(image: Image.Image, model, processor) -> tuple:
         return_tensors="pt",
     ).to("cuda" if torch.cuda.is_available() else "cpu")
 
+    print(f"  [dbg] input_ids shape: {inputs['input_ids'].shape}, device: {inputs['input_ids'].device}")
+    print(f"  [dbg] image_inputs count: {len(image_inputs) if image_inputs else 0}")
+
     with torch.inference_mode():
         ids = model.generate(
             **inputs,
@@ -136,6 +139,9 @@ def ocr_page(image: Image.Image, model, processor) -> tuple:
         )
 
     trimmed = ids[:, inputs["input_ids"].shape[1]:]
+    print(f"  [dbg] total tokens: {ids.shape[1]}, new tokens: {trimmed.shape[1]}")
+    raw_text = processor.batch_decode(trimmed, skip_special_tokens=False)[0]
+    print(f"  [dbg] raw decode (no skip): {repr(raw_text[:200])}")
     text = processor.batch_decode(
         trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=True
     )[0].strip()
