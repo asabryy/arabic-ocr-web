@@ -4,7 +4,7 @@ Textara OCR Pipeline — Modal GPU endpoint
 Receives a PDF as raw bytes, returns a DOCX as raw bytes.
 
 Pipeline per page:
-  1. PyMuPDF renders each page as a PIL image at 100 DPI
+  1. PyMuPDF renders each page as a PIL image at 150 DPI
   2. Full-page image sent to Qari OCR (Qwen2-VL 2B) in one shot
   3. Assemble python-docx with RTL styles
 
@@ -47,8 +47,8 @@ app = modal.App("textara-ocr", image=image)
 BASE_MODEL_ID = "Qwen/Qwen2-VL-2B-Instruct"
 LORA_MODEL_ID = "NAMAA-Space/Qari-OCR-0.2.2.1-VL-2B-Instruct"
 
-DPI        = 100
-MAX_PIXELS = 1280 * 28 * 28   # ~1 M pixels — full A4 page fits without downscaling
+DPI        = 150
+MAX_PIXELS = 1280 * 28 * 28 * 4   # ~4 M pixels — full A4 page at 150 DPI fits without downscaling
 
 OCR_PROMPT = (
     "Below is the image of one page of a document, as well as some raw textual content "
