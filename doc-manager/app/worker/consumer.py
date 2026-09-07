@@ -1,7 +1,6 @@
 import io
 import json
 import logging
-import os
 import time
 
 import pika
@@ -13,20 +12,20 @@ from app.dependencies.storage import get_storage
 logger = logging.getLogger("doc-worker")
 logging.basicConfig(level=logging.INFO)
 
-# OCR_BACKEND: "modal" (prod) or "http" (local dev — calls OCR_HTTP_URL)
-OCR_BACKEND  = os.getenv("OCR_BACKEND", "modal")
-OCR_HTTP_URL = os.getenv("OCR_HTTP_URL", "http://localhost:8002")
+# OCR_BACKEND: "gemini" (prod — hosted Google Gemini vision, in-process) or
+# "http" (local dev — POSTs the PDF to a self-hosted OCR server at OCR_HTTP_URL).
+OCR_BACKEND  = settings.OCR_BACKEND
+OCR_HTTP_URL = settings.OCR_HTTP_URL
 
 # Retry config for RabbitMQ connection
 _RETRY_DELAYS = [5, 10, 20, 40, 60]  # seconds between attempts
 
 
-def _call_modal(pdf_bytes: bytes) -> bytes:
-    import modal
-    logger.info("Calling Modal OCR pipeline...")
-    OCRPipeline = modal.Cls.from_name("textara-ocr", "OCRPipeline")
-    docx_bytes = OCRPipeline().process_pdf.remote(pdf_bytes)
-    logger.info("Modal OCR complete, received %d bytes of DOCX", len(docx_bytes))
+def _call_gemini(pdf_bytes: bytes) -> bytes:
+    from app.ocr.pipeline import process_pdf
+    logger.info("Running Gemini OCR pipeline (%s)...", settings.GEMINI_MODEL)
+    docx_bytes = process_pdf(pdf_bytes)
+    logger.info("Gemini OCR complete, produced %d bytes of DOCX", len(docx_bytes))
     return docx_bytes
 
 
@@ -69,7 +68,7 @@ def process_task(task: dict) -> None:
         if OCR_BACKEND == "http":
             docx_bytes = _call_http(pdf_bytes)
         else:
-            docx_bytes = _call_modal(pdf_bytes)
+            docx_bytes = _call_gemini(pdf_bytes)
 
         # ── Save DOCX back to storage ───────────────────────────────────────
         stem = file_id.rsplit(".", 1)[0]

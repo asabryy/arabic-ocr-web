@@ -10,7 +10,7 @@ ocr-backend
 /k8s/base/auth-secrets.yaml.local
 /k8s/base/ocr-secrets.yaml
 /k8s/app-secrets.yaml
-ocr
+/ocr
 **/*venv*/
 # Local dev / tooling — never commit
 CLAUDE.md

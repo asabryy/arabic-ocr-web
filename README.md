@@ -1,6 +1,6 @@
 # Textara — Arabic OCR Web App
 
-Converts Arabic PDFs into editable Word documents using the [Qari OCR](https://huggingface.co/NAMAA-Space/Qari-OCR-0.2.2.1-VL-2B-Instruct) model (Qwen2-VL fine-tuned for Arabic).
+Converts Arabic PDFs into editable Word documents using Google's Gemini vision model for OCR.
 
 ---
 
@@ -17,8 +17,7 @@ Upload an Arabic PDF → Textara runs it through a vision-language OCR model →
 | `frontend` | React 18 + Vite + Tailwind, Arabic/English i18n | k3s |
 | `auth-service` | FastAPI, SQLAlchemy, Supabase PostgreSQL, JWT | k3s |
 | `doc-manager` | FastAPI, Cloudflare R2, RabbitMQ producer | k3s |
-| `doc-worker` | RabbitMQ consumer (same image as doc-manager) | k3s |
-| `ocr-worker` | Qari model (Qwen2-VL 2B, bf16 LoRA merge) | Modal.com A10G GPU |
+| `doc-worker` | RabbitMQ consumer + in-process OCR (renders PDF, calls Gemini, builds RTL DOCX) | k3s |
 | `rabbitmq` | Message broker for OCR task queue | k3s StatefulSet |
 
 All traffic routes through an Nginx ingress on a k3s cluster hosted on Oracle Cloud Free Tier:
@@ -26,11 +25,11 @@ All traffic routes through an Nginx ingress on a k3s cluster hosted on Oracle Cl
 - `/api/doc-manager/` → `doc-manager`
 - `/` → `frontend`
 
-The OCR pipeline runs serverlessly on Modal.com — PDFs are sent as bytes, processed page-by-page through the Qari model, and returned as DOCX bytes.
+The OCR runs in-process inside the `doc-worker`: each PDF page is rendered to an image and sent to Google's Gemini vision model, and the transcribed text is assembled into a right-to-left Word document. No GPU required. The provider lives behind a single seam (`app/ocr/pipeline.py` + `OCR_BACKEND`), so it can be swapped without touching the queue or storage layers.
 
 ---
 
 ## Credits
 
-- OCR model: [Qari by NAMAA Space](https://huggingface.co/NAMAA-Space/Qari-OCR-0.2.2.1-VL-2B-Instruct)
+- OCR: [Google Gemini](https://ai.google.dev/) vision model
 - Built by [@asabryy](https://github.com/asabryy)

@@ -65,15 +65,6 @@ jobs:
             VITE_DOC_API_URL=
             VITE_GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
 
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v4
-
-      - name: Deploy Modal OCR app
-        run: uv run --with modal modal deploy ocr-worker/modal_app.py
-        env:
-          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
-          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
-
       - name: Set up kubectl
         run: |
           echo "${{ secrets.KUBECONFIG }}" | base64 -d > /tmp/kubeconfig
@@ -116,8 +107,7 @@ jobs:
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
-          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
-          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
         run: |
           kubectl create secret generic auth-service-secret \
@@ -133,8 +123,7 @@ jobs:
             --from-literal=R2_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" \
             --from-literal=R2_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
             --from-literal=R2_BUCKET_NAME="$R2_BUCKET_NAME" \
-            --from-literal=MODAL_TOKEN_ID="$MODAL_TOKEN_ID" \
-            --from-literal=MODAL_TOKEN_SECRET="$MODAL_TOKEN_SECRET" \
+            --from-literal=GEMINI_API_KEY="$GEMINI_API_KEY" \
             --namespace=textara --dry-run=client -o yaml | kubectl apply -f -
 
           kubectl create secret generic rabbitmq-secret \
