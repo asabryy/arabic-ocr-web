@@ -24,8 +24,17 @@ class Settings(BaseSettings):
     rabbitmq_pass: str = "guest"
     rabbitmq_uri: str | None = None
 
-    # OCR service
-    ocr_service_url: str = "http://localhost:8002/ocr"
+    # OCR
+    # OCR_BACKEND: "gemini" (prod — hosted Google Gemini vision) or
+    # "http" (local dev — POSTs the PDF to a self-hosted OCR server at OCR_HTTP_URL).
+    OCR_BACKEND: str = "gemini"
+    OCR_HTTP_URL: str = "http://localhost:8002"
+    OCR_DPI: int = 150
+    OCR_MAX_RETRIES: int = 5
+
+    # Google Gemini (hosted OCR)
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-flash-latest"
 
     # Storage
     STORAGE_BACKEND: str = "local"

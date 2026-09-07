@@ -51,6 +51,8 @@ services:
     environment:
       UPLOAD_DIR: /app/uploads
       STORAGE_BACKEND: local
+      OCR_BACKEND: ${OCR_BACKEND:-gemini}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     command: uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
     ports:
       - "8001:8001"
@@ -69,6 +71,8 @@ services:
     environment:
       UPLOAD_DIR: /app/uploads
       STORAGE_BACKEND: local
+      OCR_BACKEND: ${OCR_BACKEND:-gemini}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     command: python -m app.worker.consumer
     depends_on:
       - rabbitmq

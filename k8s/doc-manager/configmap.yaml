@@ -12,5 +12,6 @@ data:
   RABBITMQ_USER: "guest"
   RABBITMQ_QUEUE: "ocr_tasks"
   CORS_ORIGINS: '["https://textara.app","https://www.textara.app"]'
-  # OCR backend: "modal" for prod, "http" for local dev (patched by local-k8s.sh)
-  OCR_BACKEND: "modal"
+  # OCR backend: "gemini" for prod (hosted Google Gemini vision), "http" for local dev
+  OCR_BACKEND: "gemini"
+  GEMINI_MODEL: "gemini-flash-latest"
