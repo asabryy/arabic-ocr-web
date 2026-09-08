@@ -32,3 +32,17 @@ jobs:
           kubectl exec -n textara deploy/doc-worker -- sh -c 'env | grep -E "OCR_BACKEND|GEMINI_MODEL" ; for k in GEMINI_API_KEY; do v=$(printenv $k); echo "$k set: $([ -n "$v" ] && echo yes || echo NO) (len=${#v})"; done' || true
           echo; echo "===== recent events ====="
           kubectl get events -n textara --sort-by=.lastTimestamp 2>/dev/null | tail -30 || true
+
+      - name: In-pod OCR smoke test (render -> Gemini -> docx)
+        run: |
+          kubectl exec -n textara deploy/doc-worker -- python - <<'PY'
+          import fitz
+          from app.ocr.pipeline import process_pdf
+          # build a tiny 1-page PDF with text, in-memory
+          doc = fitz.open(); page = doc.new_page()
+          page.insert_text((72, 72), "Textara OCR smoke test — 123")
+          pdf_bytes = doc.tobytes()
+          out = process_pdf(pdf_bytes)
+          assert out[:2] == b"PK", "not a docx (zip) header"
+          print(f"SMOKE OK: produced {len(out)}-byte DOCX from {len(pdf_bytes)}-byte PDF")
+          PY
