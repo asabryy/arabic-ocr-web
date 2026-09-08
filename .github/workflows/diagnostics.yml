@@ -1,0 +1,34 @@
+name: Diagnostics
+
+# Manual-only. Dumps live cluster state/logs for debugging.
+on:
+  workflow_dispatch:
+    inputs:
+      tail:
+        description: "log lines to tail"
+        default: "300"
+
+jobs:
+  logs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up kubectl
+        run: |
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > /tmp/kubeconfig
+          echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
+
+      - name: doc-worker status + logs
+        run: |
+          T="${{ github.event.inputs.tail }}"
+          echo "===== pods (textara) ====="
+          kubectl get pods -n textara -o wide || true
+          echo; echo "===== doc-worker logs (current, tail $T) ====="
+          kubectl logs -n textara deploy/doc-worker --tail="$T" || true
+          echo; echo "===== doc-worker logs (previous container, if restarted) ====="
+          kubectl logs -n textara deploy/doc-worker --previous --tail=120 2>/dev/null || echo "(no previous container)"
+          echo; echo "===== doc-manager logs (tail 80) ====="
+          kubectl logs -n textara deploy/doc-manager --tail=80 || true
+          echo; echo "===== doc-worker env sanity (keys only, values masked) ====="
+          kubectl exec -n textara deploy/doc-worker -- sh -c 'env | grep -E "OCR_BACKEND|GEMINI_MODEL" ; for k in GEMINI_API_KEY; do v=$(printenv $k); echo "$k set: $([ -n "$v" ] && echo yes || echo NO) (len=${#v})"; done' || true
+          echo; echo "===== recent events ====="
+          kubectl get events -n textara --sort-by=.lastTimestamp 2>/dev/null | tail -30 || true
