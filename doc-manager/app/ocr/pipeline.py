@@ -21,7 +21,6 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Pt, RGBColor
-from PIL import Image
 
 from app.core.config import settings
 
@@ -38,23 +37,17 @@ OCR_PROMPT = (
 
 # ── Page rendering ────────────────────────────────────────────────────────────
 
-def render_page(page) -> Image.Image:
-    """Render a PDF page to a PIL image at the configured DPI."""
+def render_page_png(page) -> bytes:
+    """Render a PDF page to PNG bytes at the configured DPI (no PIL needed)."""
     mat = fitz.Matrix(settings.OCR_DPI / 72, settings.OCR_DPI / 72)
     pix = page.get_pixmap(matrix=mat, colorspace=fitz.csRGB)
-    return Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-
-
-def _png_bytes(img: Image.Image) -> bytes:
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    return buf.getvalue()
+    return pix.tobytes("png")
 
 
 # ── OCR (Gemini) ──────────────────────────────────────────────────────────────
 
-def ocr_page(img: Image.Image) -> str:
-    """Run Gemini OCR on a single page image, returning the transcribed text.
+def ocr_page(png_bytes: bytes) -> str:
+    """Run Gemini OCR on a single page image (PNG bytes), returning the text.
 
     Retries transient 503/overload responses with linear backoff.
     """
@@ -66,7 +59,7 @@ def ocr_page(img: Image.Image) -> str:
 
     client = genai.Client(api_key=settings.GEMINI_API_KEY)
     contents = [
-        types.Part.from_bytes(data=_png_bytes(img), mime_type="image/png"),
+        types.Part.from_bytes(data=png_bytes, mime_type="image/png"),
         OCR_PROMPT,
     ]
 
@@ -136,9 +129,9 @@ def process_pdf(pdf_bytes: bytes) -> bytes:
 
     pages_text: list[str] = []
     for i, page in enumerate(pdf_doc, 1):
-        img = render_page(page)
+        png = render_page_png(page)
         t0 = time.time()
-        text = ocr_page(img)
+        text = ocr_page(png)
         log.info("  page %d/%d — %d chars in %.1fs", i, n_pages, len(text), time.time() - t0)
         pages_text.append(text)
     pdf_doc.close()
