@@ -7,6 +7,9 @@ on:
       tail:
         description: "log lines to tail"
         default: "300"
+      grafana:
+        description: "grafana admin: off | inspect | reset"
+        default: "off"
 
 jobs:
   logs:
@@ -45,6 +48,43 @@ jobs:
           kubectl exec -n textara deploy/doc-worker -- sh -c 'env | grep -E "OCR_BACKEND|GEMINI_MODEL" ; for k in GEMINI_API_KEY; do v=$(printenv $k); echo "$k set: $([ -n "$v" ] && echo yes || echo NO) (len=${#v})"; done' || true
           echo; echo "===== recent events ====="
           kubectl get events -n textara --sort-by=.lastTimestamp 2>/dev/null | tail -30 || true
+
+      - name: Grafana admin — inspect config (no secret values)
+        if: ${{ github.event.inputs.grafana == 'inspect' }}
+        run: |
+          NS=monitoring
+          echo "===== grafana deployment: admin env wiring ====="
+          kubectl get deploy grafana -n $NS -o jsonpath='{range .spec.template.spec.containers[0].env[*]}{.name}{" <- "}{.valueFrom.secretKeyRef.name}{"/"}{.valueFrom.secretKeyRef.key}{"\n"}{end}' 2>/dev/null | grep -iE "ADMIN|SECURITY" || echo "(no explicit admin env vars)"
+          echo; echo "----- envFrom (secret/configmap refs) -----"
+          kubectl get deploy grafana -n $NS -o jsonpath='{range .spec.template.spec.containers[0].envFrom[*]}{.secretRef.name}{" (secret) "}{.configMapRef.name}{" (cm)\n"}{end}' 2>/dev/null || true
+          echo; echo "===== secret KEY names in monitoring ns (values NOT shown) ====="
+          for s in $(kubectl get secrets -n $NS -o name 2>/dev/null); do
+            echo "$s:"; kubectl get "$s" -n $NS -o jsonpath='{range $k,$v := .data}{"  "}{$k}{"\n"}{end}' 2>/dev/null
+          done
+          echo; echo "===== helm-managed? ====="
+          helm list -n $NS 2>/dev/null || echo "(helm not available)"
+          kubectl get deploy grafana -n $NS -o jsonpath='{.metadata.labels}' 2>/dev/null; echo
+
+      - name: Grafana admin — reset password (from masked secret)
+        if: ${{ github.event.inputs.grafana == 'reset' }}
+        env:
+          NEWPW: ${{ secrets.GRAFANA_ADMIN_TMP }}
+        run: |
+          NS=monitoring
+          if [ -z "$NEWPW" ]; then echo "::error::GRAFANA_ADMIN_TMP secret is not set"; exit 1; fi
+          echo "Resetting Grafana admin password in the running pod..."
+          kubectl exec -n $NS deploy/grafana -- grafana-cli --homepath /usr/share/grafana admin reset-admin-password "$NEWPW" \
+            || kubectl exec -n $NS deploy/grafana -- grafana-cli admin reset-admin-password "$NEWPW"
+          echo "Password reset for user 'admin'."
+          # Best-effort: keep the backing k8s secret in sync so a pod restart can't revert it.
+          REF=$(kubectl get deploy grafana -n $NS -o jsonpath='{range .spec.template.spec.containers[0].env[?(@.name=="GF_SECURITY_ADMIN_PASSWORD")]}{.valueFrom.secretKeyRef.name}/{.valueFrom.secretKeyRef.key}{end}' 2>/dev/null || true)
+          if [ -n "$REF" ] && [ "$REF" != "/" ]; then
+            SN=${REF%/*}; SK=${REF#*/}
+            echo "Syncing backing secret $SN[$SK] in $NS ..."
+            kubectl patch secret "$SN" -n $NS --type merge -p "{\"stringData\":{\"$SK\":\"$NEWPW\"}}" && echo "backing secret synced"
+          else
+            echo "GF_SECURITY_ADMIN_PASSWORD not sourced from an explicit env secret; DB reset should persist."
+          fi
 
       - name: In-pod OCR smoke test (render -> Gemini -> docx)
         run: |
