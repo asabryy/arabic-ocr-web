@@ -1,10 +1,11 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { AlignRight, LayoutDashboard, Zap, Cloud, ArrowRight, FileText } from "lucide-react";
+import { AlignRight, LayoutDashboard, Zap, Cloud, ArrowRight } from "lucide-react";
 import Logo from "../assets/Logo.jsx";
 import LanguageToggle from "../components/ui/LanguageToggle";
 import DarkModeToggle from "../components/ui/DarkModeToggle";
+import TrialBox from "../components/trial/TrialBox";
 
 const FEATURES = [
   { icon: AlignRight,      key: "rtl",    num: "01" },
@@ -94,62 +95,9 @@ function LandingPage({ openLogin, openRegister }) {
             <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-4">{t("landing.heroNote")}</p>
           </div>
 
-          {/* Right column — app preview panel */}
+          {/* Right column — live "try one page free" trial */}
           <div className="lg:w-[48%] flex items-center py-12 lg:py-20">
-            <div className="w-full">
-              {/* Thin top accent */}
-              <div className="h-0.5 w-full bg-indigo-500 mb-0" />
-              <div className="studio-card overflow-hidden shadow-xl shadow-zinc-200/60 dark:shadow-black/40">
-                {/* Mini toolbar */}
-                <div className="flex items-center gap-3 px-4 py-2.5 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900">
-                  <div className="flex gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-zinc-300 dark:bg-zinc-600" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-zinc-300 dark:bg-zinc-600" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-zinc-300 dark:bg-zinc-600" />
-                  </div>
-                  <div className="flex-1 h-4 bg-zinc-200 dark:bg-zinc-700 rounded-sm max-w-[160px]" />
-                  <div className="w-16 h-4 bg-indigo-100 dark:bg-indigo-500/20 rounded-sm" />
-                </div>
-                {/* Content area */}
-                <div className="p-4 space-y-3">
-                  {/* Stat row — inline, no big cards */}
-                  <div className="grid grid-cols-4 divide-x divide-zinc-100 dark:divide-zinc-800 border border-zinc-100 dark:border-zinc-800">
-                    {[
-                      { v: "12", l: "Total",     c: "text-zinc-900 dark:text-zinc-100" },
-                      { v: "1",  l: "Converting",c: "text-indigo-500" },
-                      { v: "10", l: "Done",      c: "text-emerald-600 dark:text-emerald-400" },
-                      { v: "1",  l: "Failed",    c: "text-red-500" },
-                    ].map(({ v, l, c }) => (
-                      <div key={l} className="px-3 py-2.5 text-center">
-                        <p className={`text-xl font-bold tabular-nums ${c}`}>{v}</p>
-                        <p className="text-[9px] text-zinc-400 uppercase tracking-wide mt-0.5">{l}</p>
-                      </div>
-                    ))}
-                  </div>
-                  {/* Column headers */}
-                  <div className="grid grid-cols-[1fr_auto_auto] gap-3 px-3 py-1.5 border-b border-zinc-100 dark:border-zinc-800">
-                    <span className="section-label">File</span>
-                    <span className="section-label">Status</span>
-                    <span className="section-label">Action</span>
-                  </div>
-                  {/* Rows */}
-                  {[
-                    { name: "تقرير المالية 2024.pdf", w: 140, status: "done",       statusCls: "status-done" },
-                    { name: "عقد الخدمات.pdf",         w: 110, status: "converting", statusCls: "status-processing" },
-                    { name: "السياسة العامة.pdf",       w: 125, status: "pending",   statusCls: "status-pending" },
-                  ].map(({ name, w, statusCls, status }, i) => (
-                    <div key={name} className="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-3 py-2.5 border-b border-zinc-100 dark:border-zinc-800 last:border-0">
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-3.5 h-3.5 text-zinc-300 dark:text-zinc-600 shrink-0" />
-                        <div className="h-2.5 rounded-sm bg-zinc-200 dark:bg-zinc-700" style={{ width: w }} />
-                      </div>
-                      <span className={statusCls}>{status}</span>
-                      <div className={`h-5 w-14 rounded-sm ${i === 0 ? 'bg-emerald-50 dark:bg-emerald-500/10' : i === 2 ? 'bg-indigo-50 dark:bg-indigo-500/10' : 'bg-zinc-100 dark:bg-zinc-800'}`} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <TrialBox openRegister={openRegister} />
           </div>
         </div>
       </section>

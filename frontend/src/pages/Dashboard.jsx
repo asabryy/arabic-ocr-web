@@ -3,6 +3,9 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../auth/AuthContext";
 import { fetchDocuments } from "../api/docs";
+import { useUsage } from "../hooks/useUsage";
+import UsageMeter from "../components/usage/UsageMeter";
+import PlanBadge from "../components/usage/PlanBadge";
 import { FileText, ArrowRight } from "lucide-react";
 
 function StatusText({ status }) {
@@ -20,6 +23,7 @@ function Dashboard() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [docs, setDocs] = useState(null);
+  const { usage, loading: usageLoading } = useUsage();
 
   useEffect(() => {
     fetchDocuments()
@@ -73,6 +77,14 @@ function Dashboard() {
             ))}
           </div>
         )}
+        {/* Plan + today's page budget */}
+        <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-3 border border-zinc-200 dark:border-zinc-800 px-5 py-4">
+          <div className="flex items-center gap-2 sm:w-40 shrink-0">
+            <span className="section-label">{t("plans.label")}</span>
+            {usage?.plan && <PlanBadge plan={usage.plan} />}
+          </div>
+          <UsageMeter usage={usage} loading={usageLoading} />
+        </div>
       </div>
 
       {/* ── Recent conversions: table layout ── */}
