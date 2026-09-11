@@ -10,6 +10,9 @@ on:
       grafana:
         description: "grafana admin: off | inspect | reset"
         default: "off"
+      accounts:
+        description: "user-accounts audit: off | on"
+        default: "off"
 
 jobs:
   logs:
@@ -87,6 +90,42 @@ jobs:
           else
             echo "GF_SECURITY_ADMIN_PASSWORD not sourced from an explicit env secret; DB reset should persist."
           fi
+
+      - name: User accounts audit (aggregates only, no emails)
+        if: ${{ github.event.inputs.accounts == 'on' }}
+        run: |
+          kubectl exec -n textara deploy/auth-service -- python - <<'PY'
+          import os
+          from sqlalchemy import create_engine, text
+          e = create_engine(os.environ["DATABASE_URL"])
+          with e.connect() as c:
+              total, mn, mx = c.execute(text("select count(*), min(id), max(id) from users")).one()
+              print(f"TOTAL users: {total}  (id range {mn}..{mx})")
+
+              print("\n-- signups per day (via commit timestamp, if enabled) --")
+              try:
+                  rows = c.execute(text(
+                      "select coalesce(to_char(date_trunc('day', pg_xact_commit_timestamp(xmin)),'YYYY-MM-DD'),"
+                      "'unknown(old/frozen)') d, count(*) n from users group by 1 order by 1")).all()
+                  for d, n in rows:
+                      print(f"  {d}  {n:5d}  {'#'*min(80,n)}")
+              except Exception as ex:
+                  print("  commit timestamps unavailable (track_commit_timestamp off):", str(ex)[:120])
+
+              print("\n-- verified vs unverified --")
+              for v, n in c.execute(text("select email_verified, count(*) from users group by 1 order by 1")).all():
+                  print(f"  verified={v}: {n}")
+
+              print("\n-- signup type (google-oauth = no password) --")
+              for is_oauth, n in c.execute(text(
+                  "select (hashed_password is null) is_oauth, count(*) from users group by 1 order by 1")).all():
+                  print(f"  {'oauth' if is_oauth else 'password'}: {n}")
+
+              print("\n-- top email domains --")
+              for dom, n in c.execute(text(
+                  "select split_part(email,'@',2) dom, count(*) n from users group by 1 order by n desc limit 20")).all():
+                  print(f"  {n:5d}  {dom}")
+          PY
 
       - name: In-pod OCR smoke test (render -> Gemini -> docx)
         run: |
