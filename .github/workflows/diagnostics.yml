@@ -17,6 +17,19 @@ jobs:
           echo "${{ secrets.KUBECONFIG }}" | base64 -d > /tmp/kubeconfig
           echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
 
+      - name: Cluster overview (namespaces / monitoring / ingress)
+        run: |
+          echo "===== namespaces ====="
+          kubectl get ns || true
+          echo; echo "===== all pods (all namespaces) ====="
+          kubectl get pods -A -o wide || true
+          echo; echo "===== services mentioning grafana/prometheus/loki ====="
+          kubectl get svc -A | grep -iE "grafana|prometheus|loki|metric" || echo "(none)"
+          echo; echo "===== ingresses (all namespaces) ====="
+          kubectl get ingress -A || true
+          echo; echo "===== helm releases (if helm present) ====="
+          helm list -A 2>/dev/null || echo "(helm not available on runner / not used)"
+
       - name: doc-worker status + logs
         run: |
           T="${{ github.event.inputs.tail }}"
