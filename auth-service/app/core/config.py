@@ -32,6 +32,12 @@ class Settings(BaseSettings):
     # Rate limits
     REGISTER_RATE_LIMIT: str = "5/minute"
     LOGIN_RATE_LIMIT: str = "5/minute"
+    # Header carrying the real client IP behind the ingress (first value is used).
+    # Switch to "CF-Connecting-IP" if Cloudflare proxying is enabled.
+    CLIENT_IP_HEADER: str = "X-Forwarded-For"
+
+    # Admin API — empty disables the /admin routes (they return 404)
+    ADMIN_API_KEY: str = ""
 
     # CORS — comma-separated list of allowed origins
     CORS_ORIGINS: list[str] = [

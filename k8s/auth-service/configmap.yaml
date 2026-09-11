@@ -10,6 +10,8 @@ data:
   FRONTEND_BASE_URL: "https://textara.app"
   REGISTER_RATE_LIMIT: "5/minute"
   LOGIN_RATE_LIMIT: "5/minute"
+  # Real client IP header behind ingress-nginx (use CF-Connecting-IP if Cloudflare-proxied)
+  CLIENT_IP_HEADER: "X-Forwarded-For"
   CORS_ORIGINS: '["https://textara.app","https://www.textara.app"]'
   # Injected at deploy time via CI secret GOOGLE_CLIENT_ID
   GOOGLE_CLIENT_ID: ""
