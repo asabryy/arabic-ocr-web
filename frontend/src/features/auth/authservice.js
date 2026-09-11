@@ -1,18 +1,8 @@
-import axios from "axios";
+import { createApiClient } from "../../api/client";
 
 const baseUrl = import.meta.env.VITE_AUTH_API_URL?.replace(/\/$/, "");
 
-export const authApi = axios.create({
-  baseURL: `${baseUrl}/api/auth/v1`,
-});
-
-authApi.interceptors.request.use((config) => {
-  const token = localStorage.getItem("access_token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+export const authApi = createApiClient(`${baseUrl}/api/auth/v1`);
 
 export const registerUser = async ({ name, email, password }) => {
   const response = await authApi.post("/register", { name, email, password });

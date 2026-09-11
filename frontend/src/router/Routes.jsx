@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
@@ -6,6 +6,8 @@ import MainLayout from "../layouts/MainLayout";
 import AuthLayout from "../layouts/AuthLayout";
 import LoginModal from "../components/auth/LoginModal";
 import SignupModal from "../components/auth/SignupModal";
+import LimitModal from "../components/usage/LimitModal";
+import { onQuotaExceeded } from "../api/client";
 
 import LandingPage from "../pages/LandingPage";
 import Dashboard from "../pages/Dashboard";
@@ -35,6 +37,10 @@ function RouterContent() {
   const { pathname } = useLocation();
   const [showLogin, setShowLogin] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
+  const [limitDetail, setLimitDetail] = useState(null);
+
+  // Any 402 plan-quota response anywhere in the app opens the limit modal.
+  useEffect(() => onQuotaExceeded(setLimitDetail), []);
 
   const openLogin = () => setShowLogin(true);
   const openRegister = () => setShowRegister(true);
@@ -87,6 +93,7 @@ function RouterContent() {
       {content}
       {showLogin && <LoginModal isOpen onClose={closeModals} />}
       {showRegister && <SignupModal isOpen onClose={closeModals} />}
+      {limitDetail && <LimitModal detail={limitDetail} onClose={() => setLimitDetail(null)} />}
     </>
   );
 }

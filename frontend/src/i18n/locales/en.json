@@ -14,14 +14,14 @@
     "settings": "Settings"
   },
   "landing": {
-    "badge": "Arabic OCR · Powered by Qwen2-VL",
+    "badge": "Arabic OCR · Powered by Gemini vision",
     "heroTitle1": "Arabic PDFs to",
     "heroTitle2": "editable DOCX",
     "heroTitle3": "with precision",
     "heroSubtitle": "Textara converts Arabic PDF documents into structured, right-to-left Word files — preserving layout, headers, and formatting automatically.",
     "heroCta": "Get started free",
     "heroSignIn": "Sign in",
-    "heroNote": "Free up to 50 pages/month · No credit card required",
+    "heroNote": "Try one page free, no account · Free plan: 10 pages/day",
     "featuresTitle": "Built for Arabic documents",
     "featuresSubtitle": "Not a generic OCR tool with Arabic as an afterthought — every part of the pipeline is designed for right-to-left text.",
     "howTitle": "How it works",
@@ -37,11 +37,11 @@
       },
       "layout": {
         "title": "Smart layout detection",
-        "desc": "Advanced Detectron2 models identify columns, headers, paragraphs, and titles to reconstruct the original document structure."
+        "desc": "A vision-language model reads the whole page in context and rebuilds columns, headers, paragraphs and titles into a clean document."
       },
       "gpu": {
-        "title": "GPU-powered OCR",
-        "desc": "Runs on dedicated A10G GPUs via Modal. The Qari model processes each page with high accuracy and low hallucination rate."
+        "title": "Fast, accurate OCR",
+        "desc": "Each page is transcribed by Google's Gemini vision model — full diacritics (tashkeel), footnotes and Eastern-Arabic numerals included, with a low hallucination rate."
       },
       "cloud": {
         "title": "Cloud storage",
@@ -101,7 +101,9 @@
     "dropzone": {
       "title": "Drop your PDF here",
       "subtitle": "PDF only · max 50 MB",
-      "browse": "Browse file"
+      "browse": "Browse file",
+      "shortcutPrefix": "Press",
+      "shortcutSuffix": "to browse"
     },
     "status": {
       "pending": "Pending",
@@ -132,6 +134,9 @@
     "empty": {
       "title": "No files yet",
       "body": "Upload an Arabic PDF above to get started."
+    },
+    "warnings": {
+      "tooManyPages": "This file has {{pages}} pages — your plan allows {{limit}} per document."
     }
   },
   "fileExplorer": {
@@ -189,6 +194,77 @@
       "number": "At least one number",
       "special": "At least one special character",
       "mismatch": "Passwords do not match"
+    }
+  },
+  "trial": {
+    "title": "Try it free",
+    "subtitle": "Drop a PDF — we'll OCR the first page. No signup.",
+    "freeTag": "Free · no account",
+    "dropSubtitle": "PDF only · max {{mb}} MB · first page converted",
+    "uploading": "Uploading {{name}}…",
+    "processing": "Reading the first page…",
+    "onlyFirstPage": "Only page 1 of {{total}} is converted in the trial.",
+    "done": "Your first page is ready",
+    "download": "Download DOCX",
+    "remainingPages_one": "{{count}} more page in this document.",
+    "remainingPages_other": "{{count}} more pages in this document.",
+    "moreDocs": "Convert full documents with a free account.",
+    "signupCta": "Sign up free to convert the whole document",
+    "tryAnother": "Try another file",
+    "limited": {
+      "title": "Today's free trials are used up",
+      "body": "You've used the 3 free trials for today. Create a free account for 10 pages every day."
+    },
+    "failed": "Something went wrong with this file.",
+    "retry": "Try again",
+    "invalidPdf": "That doesn't look like a readable PDF.",
+    "tooLarge": "Trial files are limited to {{mb}} MB."
+  },
+  "plans": {
+    "label": "Plan",
+    "free": "Free",
+    "pro": "Pro",
+    "current": "Current plan",
+    "upgrade": "Upgrade"
+  },
+  "usage": {
+    "today": "{{used}} / {{limit}} pages today",
+    "resets": "Resets at midnight UTC",
+    "perDoc": "Max {{limit}} pages per document"
+  },
+  "limits": {
+    "title": "Plan limit reached",
+    "daily": "You've used {{used}} of {{limit}} pages today on the {{plan}} plan.",
+    "doc": "This document has {{used}} pages; the {{plan}} plan allows up to {{limit}} per document.",
+    "upgradeHint": "Upgrade to Pro for 300 pages a day and up to 100 pages per document.",
+    "upgradeCta": "See Pro plan",
+    "close": "Close"
+  },
+  "pricing": {
+    "label": "Pricing",
+    "title": "Choose your plan",
+    "subtitle": "Whether you're an occasional user or a document-heavy professional.",
+    "perMonth": "/mo",
+    "free": {
+      "desc": "Perfect for light use",
+      "features": {
+        "daily": "10 pages per day",
+        "perDoc": "Up to 10 pages per document",
+        "trial": "Try one page free before signing up"
+      }
+    },
+    "pro": {
+      "desc": "Ideal for frequent users",
+      "features": {
+        "daily": "300 pages per day",
+        "perDoc": "Up to 100 pages per document",
+        "priority": "Priority support"
+      }
+    },
+    "cta": {
+      "getStarted": "Get started free",
+      "upgrade": "Upgrade to Pro",
+      "current": "Current plan"
     }
   }
 }
