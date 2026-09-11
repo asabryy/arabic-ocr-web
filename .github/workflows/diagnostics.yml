@@ -98,33 +98,37 @@ jobs:
           import os
           from sqlalchemy import create_engine, text
           e = create_engine(os.environ["DATABASE_URL"])
-          with e.connect() as c:
-              total, mn, mx = c.execute(text("select count(*), min(id), max(id) from users")).one()
-              print(f"TOTAL users: {total}  (id range {mn}..{mx})")
 
-              print("\n-- signups per day (via commit timestamp, if enabled) --")
-              try:
-                  rows = c.execute(text(
-                      "select coalesce(to_char(date_trunc('day', pg_xact_commit_timestamp(xmin)),'YYYY-MM-DD'),"
-                      "'unknown(old/frozen)') d, count(*) n from users group by 1 order by 1")).all()
-                  for d, n in rows:
-                      print(f"  {d}  {n:5d}  {'#'*min(80,n)}")
-              except Exception as ex:
-                  print("  commit timestamps unavailable (track_commit_timestamp off):", str(ex)[:120])
+          def q(sql):
+              with e.connect() as c:      # fresh connection per query — no cross-poisoning
+                  return c.execute(text(sql)).all()
 
-              print("\n-- verified vs unverified --")
-              for v, n in c.execute(text("select email_verified, count(*) from users group by 1 order by 1")).all():
-                  print(f"  verified={v}: {n}")
+          total, mn, mx = q("select count(*), min(id), max(id) from users")[0]
+          print(f"TOTAL users: {total}  (id range {mn}..{mx})")
 
-              print("\n-- signup type (google-oauth = no password) --")
-              for is_oauth, n in c.execute(text(
-                  "select (hashed_password is null) is_oauth, count(*) from users group by 1 order by 1")).all():
-                  print(f"  {'oauth' if is_oauth else 'password'}: {n}")
+          print("\n-- verified vs unverified --")
+          for v, n in q("select email_verified, count(*) from users group by 1 order by 1"):
+              print(f"  verified={v}: {n}")
 
-              print("\n-- top email domains --")
-              for dom, n in c.execute(text(
-                  "select split_part(email,'@',2) dom, count(*) n from users group by 1 order by n desc limit 20")).all():
-                  print(f"  {n:5d}  {dom}")
+          print("\n-- signup type (google-oauth = no password) --")
+          for is_oauth, n in q("select (hashed_password is null) is_oauth, count(*) from users group by 1 order by 1"):
+              print(f"  {'oauth' if is_oauth else 'password'}: {n}")
+
+          print("\n-- top email domains --")
+          for dom, n in q("select split_part(email,'@',2) dom, count(*) n from users group by 1 order by n desc limit 25"):
+              print(f"  {n:5d}  {dom}")
+
+          print("\n-- verified rate among password (non-oauth) accounts --")
+          for is_v, n in q("select email_verified, count(*) from users where hashed_password is not null group by 1 order by 1"):
+              print(f"  password & verified={is_v}: {n}")
+
+          print("\n-- signups per day (commit timestamp; only works if track_commit_timestamp=on) --")
+          try:
+              for d, n in q("select coalesce(to_char(date_trunc('day', pg_xact_commit_timestamp(xmin)),'YYYY-MM-DD'),"
+                            "'unknown(old/frozen)') d, count(*) n from users group by 1 order by 1"):
+                  print(f"  {d}  {n:5d}  {'#'*min(80,n)}")
+          except Exception as ex:
+              print("  UNAVAILABLE (track_commit_timestamp is off):", str(ex)[:90])
           PY
 
       - name: In-pod OCR smoke test (render -> Gemini -> docx)
