@@ -72,6 +72,8 @@ jobs:
         run: |
           NS=monitoring
           if [ -z "$NEWPW" ]; then echo "::error::GRAFANA_ADMIN_TMP secret is not set"; exit 1; fi
+          echo "Configured admin LOGIN USERNAME (not secret):"
+          kubectl get deploy grafana -n $NS -o jsonpath='{range .spec.template.spec.containers[0].env[?(@.name=="GF_SECURITY_ADMIN_USER")]}{.value}{end}' 2>/dev/null; echo " <- use this as the username"
           echo "Resetting Grafana admin password in the running pod..."
           kubectl exec -n $NS deploy/grafana -- grafana-cli --homepath /usr/share/grafana admin reset-admin-password "$NEWPW" \
             || kubectl exec -n $NS deploy/grafana -- grafana-cli admin reset-admin-password "$NEWPW"
