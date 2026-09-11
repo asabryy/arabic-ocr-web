@@ -1,19 +1,79 @@
 import logging
+from urllib.parse import quote
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse, StreamingResponse
+from sqlalchemy import Engine
+from sqlalchemy.exc import OperationalError
 
+from app.db.session import get_engine
 from app.dependencies.auth import get_current_user_id
 from app.dependencies.storage import get_storage
 from app.queue.task_queue import publish_task
 from app.schemas.document import DocumentInfo
+from app.services import quota
 from app.services.local_storage import LocalFileStorage
+from app.services.pdf import count_pages
 from app.services.storage import FileStorage
 
 router = APIRouter()
 logger = logging.getLogger("doc-manager.documents")
 
+
+# ── helpers shared with the trial router ─────────────────────────────────────
+
+def read_bytes(storage: FileStorage, owner: str, filename: str) -> bytes:
+    """Fetch a stored file's bytes (local path or R2 presigned URL)."""
+    path_or_url = storage.get_path(owner, filename)
+    if isinstance(storage, LocalFileStorage):
+        with open(path_or_url, "rb") as f:
+            return f.read()
+    resp = httpx.get(path_or_url, timeout=120)
+    if resp.status_code != 200:
+        raise HTTPException(status_code=404, detail="File not found")
+    return resp.content
+
+
+async def stream_download(
+    storage: FileStorage, owner: str, filename: str, download_name: str
+):
+    """Stream a stored file to the client as an attachment.
+
+    R2 objects are streamed *through* the backend: presigned URLs reject requests
+    that also carry an Authorization header (which axios always sends), so the
+    presigned URL is never handed to the browser.
+    """
+    path_or_url = storage.get_path(owner, filename)
+    if isinstance(storage, LocalFileStorage):
+        return FileResponse(path_or_url, filename=download_name)
+    # HTTP headers must be latin-1: give an ASCII fallback plus the RFC 5987 UTF-8 form
+    # so Arabic filenames survive (a raw non-ASCII value would fail to encode).
+    ascii_name = download_name.encode("ascii", "ignore").decode().replace('"', "") or "document"
+    disposition = f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(download_name)}"
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(path_or_url)
+            if response.status_code != 200:
+                raise HTTPException(status_code=404, detail="File not found")
+            return StreamingResponse(
+                content=response.aiter_bytes(),
+                media_type="application/octet-stream",
+                headers={"Content-Disposition": disposition},
+            )
+    except httpx.HTTPError as e:
+        logger.exception("Download HTTP error for '%s': %s", filename, e)
+        raise HTTPException(status_code=502, detail="Failed to fetch file from storage")
+
+
+def _quota_402(code: str, message: str, limit: int, used: int, plan: str) -> HTTPException:
+    return HTTPException(
+        status_code=402,
+        detail={"code": code, "message": message, "limit": limit, "used": used, "plan": plan},
+    )
+
+
+# ── endpoints ────────────────────────────────────────────────────────────────
 
 @router.get("/documents", response_model=list[DocumentInfo])
 def list_user_documents(
@@ -45,23 +105,89 @@ def delete_file(
         raise HTTPException(status_code=500, detail="Failed to delete file")
 
 
+@router.get("/usage")
+def get_usage(
+    user_id: str = Depends(get_current_user_id),
+    engine: Engine = Depends(get_engine),
+):
+    """Today's page usage and the caller's plan limits (drives the UI meter)."""
+    uid = int(user_id)
+    try:
+        plan = quota.get_plan(engine, uid)
+        limits = quota.limits_for(plan)
+        used = quota.used_today(engine, uid)
+    except OperationalError as e:
+        logger.error("Quota DB unavailable: %s", e)
+        raise HTTPException(status_code=503, detail="Quota service unavailable")
+    return {
+        "plan": limits.plan,
+        "used_today": used,
+        "daily_limit": limits.daily_pages,
+        "max_doc_pages": limits.max_doc_pages,
+        "resets_at": quota.next_reset().isoformat(),
+    }
+
+
 @router.post("/convert")
 def convert_document(
     filename: str = Query(...),
     user_id: str = Depends(get_current_user_id),
     storage: FileStorage = Depends(get_storage),
+    engine: Engine = Depends(get_engine),
 ):
     if not storage.file_exists(user_id, filename):
         raise HTTPException(status_code=404, detail="File not found")
     if storage.get_status(user_id, filename) == "processing":
         raise HTTPException(status_code=409, detail="Already processing")
+
+    # Page count: persisted at upload; backfill for files uploaded before that existed.
+    pages = storage.get_meta(user_id, filename).get("pages")
+    if pages is None:
+        pages = count_pages(read_bytes(storage, user_id, filename))
+        storage.save_meta(user_id, filename, {"pages": pages})
+
+    uid = int(user_id)
     try:
-        publish_task({"file_id": filename, "user_id": user_id, "mode": "ocr"})
+        plan = quota.get_plan(engine, uid)
+        limits = quota.limits_for(plan)
+        if pages > limits.max_doc_pages:
+            raise _quota_402(
+                "doc_pages_exceeded",
+                f"This document has {pages} pages; the {limits.plan} plan allows up to "
+                f"{limits.max_doc_pages} pages per document.",
+                limits.max_doc_pages, pages, limits.plan,
+            )
+        try:
+            used_now = quota.reserve(engine, uid, pages, limits.daily_pages, limits.plan)
+        except quota.QuotaExceeded as e:
+            raise _quota_402(
+                e.code,
+                f"You've used {e.used} of {e.limit} pages today on the {e.plan} plan.",
+                e.limit, e.used, e.plan,
+            )
+    except OperationalError as e:
+        logger.error("Quota DB unavailable: %s", e)
+        raise HTTPException(status_code=503, detail="Quota service unavailable")
+
+    try:
+        publish_task({"file_id": filename, "user_id": user_id, "mode": "ocr", "pages": pages})
         storage.set_status(user_id, filename, "processing")
     except Exception as e:
         logger.error("Failed to queue task for '%s': %s", filename, e)
+        # Give the reserved pages back — nothing was queued.
+        try:
+            quota.release(engine, uid, pages)
+        except Exception as rel:  # noqa: BLE001
+            logger.error("Failed to release %d pages for user %s: %s", pages, uid, rel)
         raise HTTPException(status_code=503, detail="Failed to queue conversion task")
-    return {"filename": filename, "status": "processing"}
+
+    return {
+        "filename": filename,
+        "status": "processing",
+        "pages": pages,
+        "used_today": used_now,
+        "daily_limit": limits.daily_pages,
+    }
 
 
 @router.get("/preview")
@@ -102,27 +228,7 @@ async def download_file(
     storage: FileStorage = Depends(get_storage),
 ):
     try:
-        path_or_url = storage.get_path(user_id, filename)
-
-        if isinstance(storage, LocalFileStorage):
-            return FileResponse(path_or_url, filename=filename)
-
-        # R2: stream through the backend — presigned URLs reject requests that
-        # also carry an Authorization header (which axios always sends).
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(path_or_url)
-                if response.status_code != 200:
-                    raise HTTPException(status_code=404, detail="File not found")
-                return StreamingResponse(
-                    content=response.aiter_bytes(),
-                    media_type="application/octet-stream",
-                    headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-                )
-        except httpx.HTTPError as e:
-            logger.exception("Download HTTP error for '%s': %s", filename, e)
-            raise HTTPException(status_code=502, detail="Failed to fetch file from storage")
-
+        return await stream_download(storage, user_id, filename, filename)
     except HTTPException:
         raise
     except Exception as e:

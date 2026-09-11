@@ -53,8 +53,8 @@ kubectl create secret generic doc-manager-secret \
   --from-literal=R2_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID:-}" \
   --from-literal=R2_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY:-}" \
   --from-literal=R2_BUCKET_NAME="${R2_BUCKET_NAME:-}" \
-  --from-literal=MODAL_TOKEN_ID="${MODAL_TOKEN_ID:-}" \
-  --from-literal=MODAL_TOKEN_SECRET="${MODAL_TOKEN_SECRET:-}" \
+  --from-literal=GEMINI_API_KEY="${GEMINI_API_KEY:-}" \
+  --from-literal=DATABASE_URL="${AUTH_DATABASE_URL:-postgresql://textara:textara@postgres:5432/textara}" \
   -n "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
 
 echo "=== Applying app manifests ==="

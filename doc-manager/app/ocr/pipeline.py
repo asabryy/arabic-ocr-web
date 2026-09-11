@@ -121,18 +121,22 @@ def build_docx(pages_text: list[str], out) -> None:
 
 # ── Orchestration ─────────────────────────────────────────────────────────────
 
-def process_pdf(pdf_bytes: bytes) -> bytes:
-    """Take raw PDF bytes, return raw DOCX bytes."""
+def process_pdf(pdf_bytes: bytes, max_pages: int | None = None) -> bytes:
+    """Take raw PDF bytes, return raw DOCX bytes.
+
+    ``max_pages`` caps how many leading pages are OCR'd (used by the anonymous trial).
+    """
     pdf_doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-    n_pages = len(pdf_doc)
-    log.info("OCR: %d page(s) via %s", n_pages, settings.GEMINI_MODEL)
+    n_total = len(pdf_doc)
+    n_pages = min(n_total, max_pages) if max_pages else n_total
+    log.info("OCR: %d of %d page(s) via %s", n_pages, n_total, settings.GEMINI_MODEL)
 
     pages_text: list[str] = []
-    for i, page in enumerate(pdf_doc, 1):
-        png = render_page_png(page)
+    for i in range(n_pages):
+        png = render_page_png(pdf_doc[i])
         t0 = time.time()
         text = ocr_page(png)
-        log.info("  page %d/%d — %d chars in %.1fs", i, n_pages, len(text), time.time() - t0)
+        log.info("  page %d/%d — %d chars in %.1fs", i + 1, n_pages, len(text), time.time() - t0)
         pages_text.append(text)
     pdf_doc.close()
 

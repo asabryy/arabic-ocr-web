@@ -1,12 +1,15 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
+from slowapi.errors import RateLimitExceeded
 
 from app.api.api_v1.api import api_router
 from app.core.config import settings
+from app.core.rate_limit import limiter
 
 logging.basicConfig(
     level=logging.INFO,
@@ -23,6 +26,24 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Doc Manager Service", lifespan=lifespan)
+
+# Decorator-based rate limits only (used by the anonymous trial); no default limits.
+app.state.limiter = limiter
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(
+        status_code=429,
+        content={
+            "detail": {
+                "code": "trial_limit_exceeded",
+                "message": "Trial limit reached. Create a free account to keep converting.",
+                "limit": settings.TRIAL_RATE_LIMIT,
+            }
+        },
+    )
+
 
 app.add_middleware(
     CORSMiddleware,

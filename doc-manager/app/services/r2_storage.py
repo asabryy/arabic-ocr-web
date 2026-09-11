@@ -1,3 +1,4 @@
+import json
 import time
 from typing import IO
 
@@ -10,7 +11,7 @@ from app.core.config import settings
 from app.schemas.document import DocumentInfo
 from app.services.storage import FileStorage
 
-_SIDECAR_SUFFIXES = (".settings.json", ".status", ".docx")
+_SIDECAR_SUFFIXES = (".settings.json", ".status", ".meta.json", ".docx")
 
 
 class R2FileStorage(FileStorage):
@@ -29,6 +30,9 @@ class R2FileStorage(FileStorage):
 
     def _status_key(self, user_id: str, filename: str) -> str:
         return f"{user_id}/{filename}.status"
+
+    def _meta_key(self, user_id: str, filename: str) -> str:
+        return f"{user_id}/{filename}.meta.json"
 
     def save_file(self, user_id: str, filename: str, file_obj: IO) -> str:
         key = self._key(user_id, filename)
@@ -54,10 +58,13 @@ class R2FileStorage(FileStorage):
 
     def delete_file(self, user_id: str, filename: str) -> None:
         self.s3.delete_object(Bucket=self.bucket, Key=self._key(user_id, filename))
-        try:
-            self.s3.delete_object(Bucket=self.bucket, Key=self._status_key(user_id, filename))
-        except ClientError:
-            pass
+        # Remove every sidecar (.status, .meta.json, the .docx output, ...) — previously
+        # only .status was deleted, leaking the rest in the bucket.
+        for suffix in _SIDECAR_SUFFIXES:
+            try:
+                self.s3.delete_object(Bucket=self.bucket, Key=f"{user_id}/{filename}{suffix}")
+            except ClientError:
+                pass
 
     def get_path(self, user_id: str, filename: str) -> str:
         key = self._key(user_id, filename)
@@ -90,3 +97,18 @@ class R2FileStorage(FileStorage):
             return obj["Body"].read().decode().strip()
         except ClientError:
             return "pending"
+
+    def save_meta(self, user_id: str, filename: str, meta: dict) -> None:
+        self.s3.put_object(
+            Bucket=self.bucket,
+            Key=self._meta_key(user_id, filename),
+            Body=json.dumps(meta).encode(),
+            ContentType="application/json",
+        )
+
+    def get_meta(self, user_id: str, filename: str) -> dict:
+        try:
+            obj = self.s3.get_object(Bucket=self.bucket, Key=self._meta_key(user_id, filename))
+            return json.loads(obj["Body"].read().decode())
+        except ClientError:
+            return {}
