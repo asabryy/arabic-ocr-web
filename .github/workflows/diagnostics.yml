@@ -94,7 +94,7 @@ jobs:
       - name: User accounts audit (aggregates only, no emails)
         if: ${{ github.event.inputs.accounts == 'on' }}
         run: |
-          kubectl exec -n textara deploy/auth-service -- python - <<'PY'
+          kubectl exec -i -n textara deploy/auth-service -- python -u - <<'PY'
           import os
           from sqlalchemy import create_engine, text
           e = create_engine(os.environ["DATABASE_URL"])
