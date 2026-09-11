@@ -15,3 +15,14 @@ data:
   # OCR backend: "gemini" for prod (hosted Google Gemini vision), "http" for local dev
   OCR_BACKEND: "gemini"
   GEMINI_MODEL: "gemini-flash-latest"
+  # Plan limits (pages) — enforced at /convert, surfaced by /usage
+  PLAN_FREE_DAILY_PAGES: "10"
+  PLAN_FREE_MAX_DOC_PAGES: "10"
+  PLAN_PRO_DAILY_PAGES: "300"
+  PLAN_PRO_MAX_DOC_PAGES: "100"
+  # Anonymous landing-page trial
+  TRIAL_MAX_PAGES: "1"
+  TRIAL_RATE_LIMIT: "3/day"
+  TRIAL_MAX_UPLOAD_MB: "10"
+  # Real client IP header behind ingress-nginx (use CF-Connecting-IP if Cloudflare-proxied)
+  CLIENT_IP_HEADER: "X-Forwarded-For"

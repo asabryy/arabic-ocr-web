@@ -5,6 +5,34 @@ on:
     branches: [main, dev]
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      SECRET_KEY: ci-test-secret
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - name: doc-manager — lint
+        working-directory: doc-manager
+        run: uvx ruff check app tests
+      - name: doc-manager — tests (incl. Postgres quota tests)
+        working-directory: doc-manager
+        run: |
+          uv sync --frozen
+          uv run pytest -q --no-cov
+
   build:
     runs-on: ubuntu-latest
 

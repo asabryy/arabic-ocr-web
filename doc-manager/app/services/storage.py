@@ -30,3 +30,11 @@ class FileStorage(ABC):
     @abstractmethod
     def get_status(self, user_id: str, filename: str) -> str:
         pass
+
+    @abstractmethod
+    def save_meta(self, user_id: str, filename: str, meta: dict) -> None:
+        """Persist small JSON metadata (e.g. page count) as a sidecar next to the file."""
+
+    @abstractmethod
+    def get_meta(self, user_id: str, filename: str) -> dict:
+        """Return the sidecar metadata, or {} if none was saved."""

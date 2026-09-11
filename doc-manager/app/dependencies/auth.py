@@ -16,7 +16,10 @@ def get_current_user_id(token: str = Depends(oauth2_scheme)) -> str:
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id: str = payload.get("sub")
-        if user_id is None:
+        # auth-service signs email-verification / password-reset tokens with the same
+        # key but marks them with a "scope" claim; never accept those as access tokens.
+        # (Also guarantees `sub` is a numeric user id for the quota lookups.)
+        if user_id is None or payload.get("scope"):
             raise credentials_exception
     except JWTError:
         raise credentials_exception

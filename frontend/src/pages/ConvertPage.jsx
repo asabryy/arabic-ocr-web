@@ -294,7 +294,12 @@ function ConvertPage() {
       await convertDocument(filename);
       setDocs((prev) => prev.map((d) => d.filename === filename ? { ...d, status: "processing" } : d));
     } catch (err) {
-      toast.error(err?.response?.data?.detail ?? t("convert.errors.convertFailed"));
+      // `detail` is a string for most errors, but an object ({code, message, ...}) for
+      // plan-quota (402) responses — surface its human message.
+      const detail = err?.response?.data?.detail;
+      toast.error(
+        (typeof detail === "string" ? detail : detail?.message) ?? t("convert.errors.convertFailed")
+      );
       delete processingStart.current[filename];
     } finally {
       setConverting((prev) => { const s = new Set(prev); s.delete(filename); return s; });

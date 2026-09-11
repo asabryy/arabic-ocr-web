@@ -1,3 +1,4 @@
+import json
 import os
 from typing import IO
 
@@ -7,7 +8,7 @@ from app.core.config import settings
 from app.schemas.document import DocumentInfo
 from app.services.storage import FileStorage
 
-_SIDECAR_SUFFIXES = (".settings.json", ".status", ".docx")
+_SIDECAR_SUFFIXES = (".settings.json", ".status", ".meta.json", ".docx")
 
 
 class LocalFileStorage(FileStorage):
@@ -18,6 +19,9 @@ class LocalFileStorage(FileStorage):
 
     def _status_path(self, user_id: str, filename: str) -> str:
         return os.path.join(self._user_path(user_id), f"{filename}.status")
+
+    def _meta_path(self, user_id: str, filename: str) -> str:
+        return os.path.join(self._user_path(user_id), f"{filename}.meta.json")
 
     def save_file(self, user_id: str, filename: str, file_obj: IO) -> str:
         path = os.path.join(self._user_path(user_id), filename)
@@ -74,3 +78,14 @@ class LocalFileStorage(FileStorage):
             return "pending"
         with open(path) as f:
             return f.read().strip()
+
+    def save_meta(self, user_id: str, filename: str, meta: dict) -> None:
+        with open(self._meta_path(user_id, filename), "w") as f:
+            json.dump(meta, f)
+
+    def get_meta(self, user_id: str, filename: str) -> dict:
+        path = self._meta_path(user_id, filename)
+        if not os.path.exists(path):
+            return {}
+        with open(path) as f:
+            return json.load(f)
