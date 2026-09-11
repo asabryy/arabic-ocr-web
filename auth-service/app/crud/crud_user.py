@@ -56,3 +56,13 @@ def update_user(db: Session, user: User, user_in: UserUpdate) -> User:
     db.commit()
     db.refresh(user)
     return user
+
+
+def set_plan(db: Session, user: User, plan: str) -> User:
+    """
+    Change a user's account tier ("free" | "pro").
+    """
+    user.plan = plan
+    db.commit()
+    db.refresh(user)
+    return user

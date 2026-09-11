@@ -1,4 +1,7 @@
 
+from datetime import datetime
+from typing import Literal
+
 from pydantic import BaseModel, EmailStr
 
 
@@ -15,8 +18,14 @@ class UserOut(BaseModel):
     email: EmailStr
     name: str | None = None
     email_verified: bool = False
+    plan: str = "free"
+    created_at: datetime | None = None
 
     model_config = {"from_attributes": True}
+
+
+class PlanUpdate(BaseModel):
+    plan: Literal["free", "pro"]
 
 
 class Token(BaseModel):
