@@ -28,6 +28,10 @@ jobs:
         run: |
           (cd doc-manager && uv lock --check)
           (cd auth-service && uv lock --check)
+      - name: Grafana as code — lint + validate dashboards
+        run: |
+          uvx ruff check scripts
+          python3 scripts/grafana_provision.py --validate
       - name: doc-manager — lint
         working-directory: doc-manager
         run: uvx ruff check app tests

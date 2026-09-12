@@ -1,0 +1,17 @@
+{
+  "name": "Textara DB",
+  "uid": "textara-db",
+  "type": "grafana-postgresql-datasource",
+  "access": "proxy",
+  "url": "<injected: host:port from AUTH_DATABASE_URL>",
+  "user": "grafana_ro",
+  "jsonData": {
+    "database": "<injected>",
+    "sslmode": "require",
+    "postgresVersion": 1500,
+    "timescaledb": false,
+    "maxOpenConns": 2,
+    "maxIdleConns": 2,
+    "connMaxLifetime": 14400
+  }
+}
