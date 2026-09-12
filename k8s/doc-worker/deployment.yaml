@@ -12,6 +12,10 @@ spec:
     metadata:
       labels:
         app: doc-worker
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9100"
     spec:
       imagePullSecrets:
         - name: ghcr-credentials
@@ -19,6 +23,16 @@ spec:
         - name: doc-worker
           image: ghcr.io/asabryy/doc-manager:latest
           command: ["python", "-m", "app.worker.consumer"]
+          ports:
+            - containerPort: 9100
+              name: metrics
+          # The metrics server starts before the RabbitMQ connect loop, so it doubles
+          # as a cheap liveness signal for a process that otherwise exposes nothing.
+          livenessProbe:
+            tcpSocket:
+              port: metrics
+            initialDelaySeconds: 20
+            periodSeconds: 30
           envFrom:
             - configMapRef:
                 name: doc-manager-config

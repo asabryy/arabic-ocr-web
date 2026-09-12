@@ -5,6 +5,7 @@ from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 from sqlalchemy.orm import Session
 
+from app import metrics
 from app.core.config import settings
 from app.core.security import create_access_token
 from app.crud.crud_user import create_google_user, get_user_by_email
@@ -33,6 +34,7 @@ def google_auth(
             settings.GOOGLE_CLIENT_ID,
         )
     except ValueError as exc:
+        metrics.LOGINS.labels(method="google", outcome="failure").inc()
         logger.warning("Invalid Google ID token: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -45,9 +47,11 @@ def google_auth(
     user = get_user_by_email(db, email)
     if not user:
         user = create_google_user(db, email=email, name=name)
+        metrics.SIGNUPS.labels(method="google").inc()
         logger.info("New user created via Google OAuth: %s", email)
     else:
         logger.info("Existing user signed in via Google OAuth: %s", email)
 
     access_token = create_access_token(subject=user.id)
+    metrics.LOGINS.labels(method="google", outcome="success").inc()
     return {"access_token": access_token, "token_type": "bearer"}

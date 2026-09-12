@@ -7,6 +7,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import Engine
 from sqlalchemy.exc import OperationalError
 
+from app import metrics
 from app.db.session import get_engine
 from app.dependencies.auth import get_current_user_id
 from app.dependencies.storage import get_storage
@@ -67,6 +68,7 @@ async def stream_download(
 
 
 def _quota_402(code: str, message: str, limit: int, used: int, plan: str) -> HTTPException:
+    metrics.QUOTA_REJECTIONS.labels(reason=code, plan=plan).inc()
     return HTTPException(
         status_code=402,
         detail={"code": code, "message": message, "limit": limit, "used": used, "plan": plan},
@@ -172,8 +174,11 @@ def convert_document(
     try:
         publish_task({"file_id": filename, "user_id": user_id, "mode": "ocr", "pages": pages})
         storage.set_status(user_id, filename, "processing")
+        metrics.CONVERSIONS_REQUESTED.labels(mode="ocr", plan=limits.plan).inc()
+        metrics.PAGES_REQUESTED.labels(mode="ocr", plan=limits.plan).inc(pages)
     except Exception as e:
         logger.error("Failed to queue task for '%s': %s", filename, e)
+        metrics.ENQUEUE_FAILURES.labels(mode="ocr").inc()
         # Give the reserved pages back — nothing was queued.
         try:
             quota.release(engine, uid, pages)

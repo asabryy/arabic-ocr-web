@@ -56,7 +56,10 @@ app.add_middleware(SlowAPIMiddleware)
 
 app.include_router(api_router, prefix="/api/auth/v1")
 
-Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+# Keep health probes and the scrape itself out of http_requests_total.
+Instrumentator(excluded_handlers=[r"/health$", r"^/metrics$"]).instrument(app).expose(
+    app, endpoint="/metrics", include_in_schema=False
+)
 
 
 @app.exception_handler(RateLimitExceeded)

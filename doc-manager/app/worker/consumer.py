@@ -6,6 +6,7 @@ import time
 import pika
 import requests
 
+from app import metrics
 from app.core.config import settings
 from app.dependencies.storage import get_storage
 
@@ -21,10 +22,10 @@ OCR_HTTP_URL = settings.OCR_HTTP_URL
 _RETRY_DELAYS = [5, 10, 20, 40, 60]  # seconds between attempts
 
 
-def _call_gemini(pdf_bytes: bytes, max_pages: int | None = None) -> bytes:
+def _call_gemini(pdf_bytes: bytes, max_pages: int | None = None, mode: str = "ocr") -> bytes:
     from app.ocr.pipeline import process_pdf
     logger.info("Running Gemini OCR pipeline (%s, max_pages=%s)...", settings.GEMINI_MODEL, max_pages)
-    docx_bytes = process_pdf(pdf_bytes, max_pages=max_pages)
+    docx_bytes = process_pdf(pdf_bytes, max_pages=max_pages, mode=mode)
     logger.info("Gemini OCR complete, produced %d bytes of DOCX", len(docx_bytes))
     return docx_bytes
 
@@ -75,6 +76,7 @@ def process_task(task: dict) -> None:
         "Processing file=%s user=%s mode=%s backend=%s max_pages=%s",
         file_id, user_id, mode, OCR_BACKEND, max_pages,
     )
+    t0 = time.perf_counter()
 
     try:
         # ── Fetch PDF from storage (R2 presigned URL, or a local path in dev) ──
@@ -93,7 +95,7 @@ def process_task(task: dict) -> None:
         if OCR_BACKEND == "http":
             docx_bytes = _call_http(pdf_bytes, max_pages)
         else:
-            docx_bytes = _call_gemini(pdf_bytes, max_pages)
+            docx_bytes = _call_gemini(pdf_bytes, max_pages, mode)
 
         # ── Save DOCX back to storage ───────────────────────────────────────
         stem = file_id.rsplit(".", 1)[0]
@@ -103,10 +105,15 @@ def process_task(task: dict) -> None:
 
         storage.set_status(user_id, file_id, "done")
         logger.info("file=%s marked as done", file_id)
+        metrics.OCR_REQUESTS.labels(status="success", mode=mode).inc()
+        metrics.OCR_REQUEST_DURATION.labels(mode=mode).observe(time.perf_counter() - t0)
 
     except Exception as e:
+        # NB: the literal "Failed to process file=" text is matched by a Grafana/Loki panel.
         logger.error("Failed to process file=%s: %s", file_id, e, exc_info=True)
         storage.set_status(user_id, file_id, "failed")
+        metrics.OCR_REQUESTS.labels(status="error", mode=mode).inc()
+        metrics.OCR_REQUEST_DURATION.labels(mode=mode).observe(time.perf_counter() - t0)
         _refund_pages(user_id, pages)
 
 
@@ -173,5 +180,11 @@ def consume() -> None:
             time.sleep(5)
 
 
-if __name__ == "__main__":
+def main() -> None:
+    # Start /metrics first so the pod is scrapeable even while RabbitMQ is unreachable.
+    metrics.start_worker_metrics_server(settings.WORKER_METRICS_PORT)
     consume()
+
+
+if __name__ == "__main__":
+    main()

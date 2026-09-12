@@ -13,6 +13,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 
+from app import metrics
 from app.api.api_v1.endpoints.document import stream_download
 from app.core.config import settings
 from app.core.rate_limit import limiter
@@ -45,11 +46,16 @@ async def start_trial(
 ):
     data = await file.read()
     if len(data) > settings.TRIAL_MAX_UPLOAD_MB * 1024 * 1024:
+        metrics.TRIAL_REJECTIONS.labels(reason="too_large").inc()
         raise HTTPException(
             status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             detail=f"Trial uploads are limited to {settings.TRIAL_MAX_UPLOAD_MB} MB",
         )
-    pages_total = count_pages(data)
+    try:
+        pages_total = count_pages(data)
+    except HTTPException:
+        metrics.TRIAL_REJECTIONS.labels(reason="invalid_pdf").inc()
+        raise
 
     trial_id = uuid.uuid4().hex
     owner = _owner(trial_id)
@@ -73,8 +79,13 @@ async def start_trial(
             }
         )
         storage.set_status(owner, TRIAL_PDF, "processing")
+        metrics.CONVERSIONS_REQUESTED.labels(mode="trial", plan="anonymous").inc()
+        metrics.PAGES_REQUESTED.labels(mode="trial", plan="anonymous").inc(
+            min(pages_total, settings.TRIAL_MAX_PAGES)
+        )
     except Exception as e:
         logger.error("Failed to queue trial %s: %s", trial_id, e)
+        metrics.ENQUEUE_FAILURES.labels(mode="trial").inc()
         try:
             storage.delete_file(owner, TRIAL_PDF)
         except Exception:  # noqa: BLE001
@@ -113,4 +124,5 @@ async def trial_download(trial_id: str, storage: FileStorage = Depends(get_stora
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Conversion not finished")
     original = storage.get_meta(owner, TRIAL_PDF).get("original_name") or TRIAL_PDF
     download_name = original.rsplit(".", 1)[0] + ".docx"
+    metrics.TRIAL_DOWNLOADS.inc()
     return await stream_download(storage, owner, TRIAL_DOCX, download_name)

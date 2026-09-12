@@ -35,6 +35,16 @@ class Settings(BaseSettings):
     # Google Gemini (hosted OCR)
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-flash-latest"
+    # Rate-limit (429) backoff: honor Google's suggested delay, capped; bounded attempts.
+    OCR_429_MAX_RETRIES: int = 6
+    OCR_429_MAX_DELAY_S: float = 60.0
+    OCR_429_DEFAULT_DELAY_S: float = 10.0  # per attempt, when no hint is given
+    # Pricing used for the estimated-cost metric (USD per 1M tokens)
+    GEMINI_PRICE_INPUT_USD_PER_M: float = 0.75
+    GEMINI_PRICE_OUTPUT_USD_PER_M: float = 3.75
+
+    # Worker /metrics endpoint (scraped by Prometheus via pod annotations); 0 disables
+    WORKER_METRICS_PORT: int = 9100
 
     # Database — shared with auth-service (reads users.plan, reads/writes usage_daily).
     # Empty => quota-gated endpoints (/convert, /usage) return 503.

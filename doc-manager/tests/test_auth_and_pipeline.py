@@ -54,3 +54,14 @@ def test_process_pdf_max_pages_larger_than_doc(monkeypatch):
     monkeypatch.setattr(pipeline, "ocr_page", lambda png: (calls.append(png), "x")[1])
     pipeline.process_pdf(make_pdf(2), max_pages=10)
     assert len(calls) == 2
+
+
+def test_process_pdf_records_page_metrics_by_mode(monkeypatch):
+    from prometheus_client import REGISTRY
+
+    monkeypatch.setattr(pipeline, "ocr_page", lambda png: "x")
+    before = REGISTRY.get_sample_value("ocr_pages_total", {"mode": "trial"}) or 0.0
+    hist_before = REGISTRY.get_sample_value("ocr_page_duration_seconds_count") or 0.0
+    pipeline.process_pdf(make_pdf(3), max_pages=1, mode="trial")
+    assert REGISTRY.get_sample_value("ocr_pages_total", {"mode": "trial"}) == before + 1
+    assert REGISTRY.get_sample_value("ocr_page_duration_seconds_count") == hist_before + 1

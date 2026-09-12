@@ -26,3 +26,9 @@ data:
   TRIAL_MAX_UPLOAD_MB: "10"
   # Real client IP header behind ingress-nginx (use CF-Connecting-IP if Cloudflare-proxied)
   CLIENT_IP_HEADER: "X-Forwarded-For"
+  # Worker metrics + Gemini rate-limit backoff + cost estimate (shared by doc-manager/doc-worker)
+  WORKER_METRICS_PORT: "9100"
+  OCR_429_MAX_RETRIES: "6"
+  OCR_429_MAX_DELAY_S: "60"
+  GEMINI_PRICE_INPUT_USD_PER_M: "0.75"
+  GEMINI_PRICE_OUTPUT_USD_PER_M: "3.75"
