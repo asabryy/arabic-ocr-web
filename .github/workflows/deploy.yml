@@ -196,3 +196,22 @@ jobs:
           kubectl rollout undo deployment/doc-manager --namespace=textara || true
           kubectl rollout undo deployment/doc-worker --namespace=textara || true
           kubectl rollout undo deployment/frontend --namespace=textara || true
+
+      # ── Grafana as code (best-effort: never fails the deploy) ──────────────
+      - name: Grafana — ensure read-only DB role
+        if: success()
+        continue-on-error: true
+        env:
+          GRAFANA_DB_PASSWORD: ${{ secrets.GRAFANA_DB_PASSWORD }}
+        run: |
+          kubectl exec -i -n textara deploy/auth-service -- \
+            python -u - "$GRAFANA_DB_PASSWORD" < scripts/grafana_db_role.py
+
+      - name: Grafana — provision datasource + dashboards
+        if: success()
+        continue-on-error: true
+        env:
+          GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+          GRAFANA_DB_PASSWORD: ${{ secrets.GRAFANA_DB_PASSWORD }}
+          AUTH_DATABASE_URL: ${{ secrets.AUTH_DATABASE_URL }}
+        run: python3 scripts/grafana_provision.py

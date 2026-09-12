@@ -1,0 +1,31 @@
+name: Grafana provision
+
+# Manual re-provisioning of the Grafana datasource + dashboards without a
+# full deploy (e.g. after rotating GRAFANA_DB_PASSWORD or rebuilding Grafana).
+on:
+  workflow_dispatch:
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        run: |
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > /tmp/kubeconfig
+          echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
+
+      - name: Ensure read-only DB role
+        env:
+          GRAFANA_DB_PASSWORD: ${{ secrets.GRAFANA_DB_PASSWORD }}
+        run: |
+          kubectl exec -i -n textara deploy/auth-service -- \
+            python -u - "$GRAFANA_DB_PASSWORD" < scripts/grafana_db_role.py
+
+      - name: Provision datasource + dashboards
+        env:
+          GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+          GRAFANA_DB_PASSWORD: ${{ secrets.GRAFANA_DB_PASSWORD }}
+          AUTH_DATABASE_URL: ${{ secrets.AUTH_DATABASE_URL }}
+        run: python3 scripts/grafana_provision.py
