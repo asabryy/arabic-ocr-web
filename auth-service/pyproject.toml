@@ -19,6 +19,7 @@ dependencies = [
     "slowapi>=0.1.9",
     "email-validator>=2.2",
     "prometheus-fastapi-instrumentator>=6.1",
+    "prometheus-client>=0.24",
     "google-auth>=2.40",
     "cachecontrol>=0.14",
 ]

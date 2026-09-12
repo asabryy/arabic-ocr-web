@@ -3,6 +3,7 @@ import logging
 
 from fastapi import APIRouter, Depends, File, UploadFile
 
+from app import metrics
 from app.dependencies.auth import get_current_user_id
 from app.dependencies.storage import get_storage
 from app.services.pdf import count_pages
@@ -24,6 +25,7 @@ async def upload_file(
     pages = count_pages(data)
     storage.save_file(user_id, file.filename, io.BytesIO(data))
     storage.save_meta(user_id, file.filename, {"pages": pages})
+    metrics.UPLOADS.inc()
     return {
         "filename": file.filename,
         "status": storage.get_status(user_id, file.filename),

@@ -24,6 +24,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
+      - name: Lockfiles in sync with pyproject (Docker builds use --frozen)
+        run: |
+          (cd doc-manager && uv lock --check)
+          (cd auth-service && uv lock --check)
       - name: doc-manager — lint
         working-directory: doc-manager
         run: uvx ruff check app tests

@@ -3,6 +3,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
+from app import metrics
 from app.core.config import settings
 from app.core.email import send_verification_email
 from app.core.rate_limit import limiter
@@ -35,6 +36,7 @@ def register_user(
         )
 
     new_user = create_user(db, user_in)
+    metrics.SIGNUPS.labels(method="password").inc()
     token = create_email_verification_token(new_user.email)
 
     try:

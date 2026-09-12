@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
+from app import metrics
 from app.core.dependencies import get_current_user
 from app.core.email import send_verification_email
 from app.core.rate_limit import limiter
@@ -35,6 +36,7 @@ def verify_email(
         return {"message": "Email already verified"}
 
     user.email_verified = True
+    metrics.EMAIL_VERIFICATIONS.inc()
     db.commit()
     return {"message": "Email verified successfully"}
 

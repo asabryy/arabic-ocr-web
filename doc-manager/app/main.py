@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 from slowapi.errors import RateLimitExceeded
 
+from app import metrics
 from app.api.api_v1.api import api_router
 from app.core.config import settings
 from app.core.rate_limit import limiter
@@ -33,6 +34,8 @@ app.state.limiter = limiter
 
 @app.exception_handler(RateLimitExceeded)
 async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    # The trial upload is the only rate-limited route in this service.
+    metrics.TRIAL_REJECTIONS.labels(reason="rate_limited").inc()
     return JSONResponse(
         status_code=429,
         content={
@@ -55,4 +58,8 @@ app.add_middleware(
 
 app.include_router(api_router, prefix="/api/doc-manager/v1")
 
-Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+# Keep health probes and the scrape itself out of http_requests_total — they otherwise
+# account for >99% of the series and bury real traffic.
+Instrumentator(excluded_handlers=[r"/health$", r"^/metrics$"]).instrument(app).expose(
+    app, endpoint="/metrics", include_in_schema=False
+)

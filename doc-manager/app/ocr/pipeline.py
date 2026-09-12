@@ -13,6 +13,7 @@ assembly) lives here so a different provider can be dropped in behind
 
 import io
 import logging
+import re
 import time
 
 import fitz  # PyMuPDF
@@ -22,6 +23,7 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Pt, RGBColor
 
+from app import metrics
 from app.core.config import settings
 
 log = logging.getLogger("doc-worker.ocr")
@@ -46,38 +48,107 @@ def render_page_png(page) -> bytes:
 
 # ── OCR (Gemini) ──────────────────────────────────────────────────────────────
 
+# Seams for tests (monkeypatch): the sleeper and the client factory.
+_sleep = time.sleep
+_client = None
+
+
+def _get_client():
+    """One genai.Client per process (reused across pages)."""
+    global _client
+    if _client is None:
+        from google import genai
+
+        if not settings.GEMINI_API_KEY:
+            raise RuntimeError("GEMINI_API_KEY is not set")
+        _client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    return _client
+
+
+_RETRY_HINT_RE = re.compile(r"retry in (\d+(?:\.\d+)?)\s*s", re.IGNORECASE)
+
+
+def _classify(exc: Exception) -> str:
+    """'429' (rate limited), '503' (overloaded/unavailable) or 'other'."""
+    code = getattr(exc, "code", None)
+    msg = str(exc)
+    if code == 429 or "RESOURCE_EXHAUSTED" in msg:
+        return "429"
+    if code == 503 or "UNAVAILABLE" in msg or "overloaded" in msg.lower():
+        return "503"
+    return "other"
+
+
+def _retry_delay_seconds(exc: Exception) -> float | None:
+    """Google's suggested wait: RetryInfo.retryDelay in the error details, else the
+    'Please retry in 26.4s' phrase in the message. None if no hint."""
+    details = getattr(exc, "details", None)
+    try:
+        entries = details["error"]["details"] if isinstance(details, dict) else []
+        for entry in entries:
+            if str(entry.get("@type", "")).endswith("RetryInfo"):
+                delay = entry.get("retryDelay")
+                if isinstance(delay, dict):
+                    return float(delay.get("seconds", 0)) + float(delay.get("nanos", 0)) / 1e9
+                if isinstance(delay, str) and delay.endswith("s"):
+                    return float(delay[:-1])
+    except (KeyError, TypeError, ValueError, AttributeError):
+        pass
+    m = _RETRY_HINT_RE.search(str(exc))
+    return float(m.group(1)) if m else None
+
+
 def ocr_page(png_bytes: bytes) -> str:
     """Run Gemini OCR on a single page image (PNG bytes), returning the text.
 
-    Retries transient 503/overload responses with linear backoff.
+    Retries: 429 (rate limited) honouring Google's suggested delay, capped at
+    OCR_429_MAX_DELAY_S, up to OCR_429_MAX_RETRIES times; 503/overloaded with linear
+    backoff up to OCR_MAX_RETRIES. Anything else (or exhausted retries) raises, which
+    fails the task and refunds the user's reserved pages.
     """
-    from google import genai
     from google.genai import types
 
-    if not settings.GEMINI_API_KEY:
-        raise RuntimeError("GEMINI_API_KEY is not set")
-
-    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    client = _get_client()
+    model = settings.GEMINI_MODEL
     contents = [
         types.Part.from_bytes(data=png_bytes, mime_type="image/png"),
         OCR_PROMPT,
     ]
 
-    last_exc = None
-    for attempt in range(settings.OCR_MAX_RETRIES):
+    n429 = n503 = 0
+    while True:
+        t0 = time.perf_counter()
         try:
-            resp = client.models.generate_content(
-                model=settings.GEMINI_MODEL, contents=contents
-            )
-            return (resp.text or "").strip()
-        except Exception as e:  # noqa: BLE001 — retry only on transient overload
-            last_exc = e
-            msg = str(e)
-            if "503" in msg or "UNAVAILABLE" in msg or "overloaded" in msg.lower():
-                time.sleep(2 * (attempt + 1))
+            resp = client.models.generate_content(model=model, contents=contents)
+        except Exception as e:  # noqa: BLE001 — classified below
+            kind = _classify(e)
+            if kind == "429" and n429 < settings.OCR_429_MAX_RETRIES:
+                n429 += 1
+                hint = _retry_delay_seconds(e)
+                delay = min(hint or settings.OCR_429_DEFAULT_DELAY_S * n429, settings.OCR_429_MAX_DELAY_S)
+                metrics.GEMINI_REQUESTS.labels(outcome="retry_429", model=model).inc()
+                metrics.GEMINI_BACKOFF_SECONDS.labels(reason="429").inc(delay)
+                log.warning("Gemini 429 (attempt %d/%d) — sleeping %.1fs", n429, settings.OCR_429_MAX_RETRIES, delay)
+                _sleep(delay)
                 continue
+            if kind == "503" and n503 < settings.OCR_MAX_RETRIES:
+                n503 += 1
+                delay = 2.0 * n503
+                metrics.GEMINI_REQUESTS.labels(outcome="retry_503", model=model).inc()
+                metrics.GEMINI_BACKOFF_SECONDS.labels(reason="503").inc(delay)
+                log.warning("Gemini unavailable (attempt %d/%d) — sleeping %.1fs", n503, settings.OCR_MAX_RETRIES, delay)
+                _sleep(delay)
+                continue
+            metrics.GEMINI_REQUESTS.labels(outcome="error", model=model).inc()
             raise
-    raise last_exc
+
+        metrics.GEMINI_REQUEST_DURATION.observe(time.perf_counter() - t0)
+        metrics.GEMINI_REQUESTS.labels(outcome="ok", model=model).inc()
+        metrics.record_gemini_usage(
+            getattr(resp, "usage_metadata", None), model,
+            settings.GEMINI_PRICE_INPUT_USD_PER_M, settings.GEMINI_PRICE_OUTPUT_USD_PER_M,
+        )
+        return (resp.text or "").strip()
 
 
 # ── DOCX builder (RTL) ────────────────────────────────────────────────────────
@@ -121,10 +192,11 @@ def build_docx(pages_text: list[str], out) -> None:
 
 # ── Orchestration ─────────────────────────────────────────────────────────────
 
-def process_pdf(pdf_bytes: bytes, max_pages: int | None = None) -> bytes:
+def process_pdf(pdf_bytes: bytes, max_pages: int | None = None, mode: str = "ocr") -> bytes:
     """Take raw PDF bytes, return raw DOCX bytes.
 
     ``max_pages`` caps how many leading pages are OCR'd (used by the anonymous trial).
+    ``mode`` only labels the metrics (ocr|trial).
     """
     pdf_doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     n_total = len(pdf_doc)
@@ -133,10 +205,13 @@ def process_pdf(pdf_bytes: bytes, max_pages: int | None = None) -> bytes:
 
     pages_text: list[str] = []
     for i in range(n_pages):
-        png = render_page_png(pdf_doc[i])
         t0 = time.time()
+        png = render_page_png(pdf_doc[i])
         text = ocr_page(png)
-        log.info("  page %d/%d — %d chars in %.1fs", i + 1, n_pages, len(text), time.time() - t0)
+        elapsed = time.time() - t0
+        metrics.OCR_PAGE_DURATION.observe(elapsed)
+        metrics.OCR_PAGES.labels(mode=mode).inc()
+        log.info("  page %d/%d — %d chars in %.1fs", i + 1, n_pages, len(text), elapsed)
         pages_text.append(text)
     pdf_doc.close()
 
