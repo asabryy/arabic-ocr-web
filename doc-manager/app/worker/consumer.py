@@ -1,6 +1,7 @@
 import io
 import json
 import logging
+import threading
 import time
 
 import pika
@@ -59,7 +60,7 @@ def _refund_pages(user_id: str, pages: int | None) -> None:
         logger.error("Failed to refund %s pages to user %s: %s", pages, user_id, e)
 
 
-def process_task(task: dict) -> None:
+def process_task(task: dict, redelivered: bool = False) -> None:
     file_id = task.get("file_id")
     user_id = task.get("user_id")
     mode = task.get("mode", "ocr")
@@ -71,6 +72,17 @@ def process_task(task: dict) -> None:
         return
 
     storage = get_storage()
+    if redelivered:
+        # A redelivery whose status is already terminal was fully handled by a previous
+        # attempt (incl. the quota refund); running it again would double-refund and
+        # re-burn Gemini quota. Only a crash mid-task ("processing") warrants a retry.
+        try:
+            prior = storage.get_status(user_id, file_id)
+        except Exception:  # noqa: BLE001
+            prior = None
+        if prior in ("done", "failed"):
+            logger.warning("Skipping redelivered task file=%s user=%s: already %s", file_id, user_id, prior)
+            return
     storage.set_status(user_id, file_id, "processing")
     logger.info(
         "Processing file=%s user=%s mode=%s backend=%s max_pages=%s",
@@ -143,6 +155,28 @@ def _connect() -> pika.BlockingConnection:
     return pika.BlockingConnection(params)
 
 
+def _make_callback(connection):
+    def callback(ch, method, properties, body):
+        # A task can block for minutes (Gemini 429 backoff), far longer than the
+        # AMQP heartbeat. Run it on a thread so start_consuming() keeps servicing
+        # heartbeats; otherwise RabbitMQ drops us, redelivers the message and the
+        # same document loops forever. (pika's basic_consumer_threaded pattern;
+        # prefetch=1 keeps processing serial.)
+        def work():
+            try:
+                process_task(json.loads(body), redelivered=method.redelivered)
+            except Exception as e:  # noqa: BLE001
+                logger.error("Unhandled error processing message: %s", e)
+            finally:
+                connection.add_callback_threadsafe(
+                    lambda: ch.basic_ack(delivery_tag=method.delivery_tag)
+                )
+
+        threading.Thread(target=work, name="ocr-task", daemon=True).start()
+
+    return callback
+
+
 def consume() -> None:
     while True:
         connection = _connect()
@@ -152,16 +186,7 @@ def consume() -> None:
             channel.basic_qos(prefetch_count=1)
             logger.info("Waiting for messages in '%s'. CTRL+C to exit.", settings.rabbitmq_queue)
 
-            def callback(ch, method, properties, body):
-                try:
-                    task = json.loads(body)
-                    process_task(task)
-                except Exception as e:
-                    logger.error("Unhandled error processing message: %s", e)
-                finally:
-                    ch.basic_ack(delivery_tag=method.delivery_tag)
-
-            channel.basic_consume(queue=settings.rabbitmq_queue, on_message_callback=callback)
+            channel.basic_consume(queue=settings.rabbitmq_queue, on_message_callback=_make_callback(connection))
 
             try:
                 channel.start_consuming()
