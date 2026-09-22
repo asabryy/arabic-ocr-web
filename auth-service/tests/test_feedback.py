@@ -59,7 +59,7 @@ def test_honeypot_is_silently_discarded(client, sent):
 
 
 def test_send_failure_is_reported_as_retryable(client, sent):
-    sent.side_effect = RuntimeError("sendgrid down")
+    sent.side_effect = RuntimeError("email provider down")
     r = client.post(URL, json={**BODY, "email": "someone@example.com"})
     assert r.status_code == 503
 
