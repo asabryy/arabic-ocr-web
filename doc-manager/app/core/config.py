@@ -55,7 +55,9 @@ class Settings(BaseSettings):
     # Plan limits (pages). Enforced at /convert; surfaced by /usage.
     PLAN_FREE_DAILY_PAGES: int = 10
     PLAN_FREE_MAX_DOC_PAGES: int = 10
-    PLAN_PRO_DAILY_PAGES: int = 300
+    # Bounds worst-case Gemini spend for a Pro seat: 100 pages/day at ~$0.0036/page
+    # is ~$11/mo against a $9.99 subscription. 300 allowed ~$32 — more than the price.
+    PLAN_PRO_DAILY_PAGES: int = 100
     PLAN_PRO_MAX_DOC_PAGES: int = 100
 
     # Anonymous trial (landing page): first N pages only, rate-limited per client IP.

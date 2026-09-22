@@ -19,9 +19,12 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRES_MINUTES: int = 30
 
-    # Email (SendGrid) — optional; email sending is skipped if empty
-    SENDGRID_API_KEY: str = ""
+    # Email (Resend) — optional; sending is skipped if empty so local/CI can boot.
+    # Replaced SendGrid in Sep 2026 after its trial expired and sends began failing
+    # silently. Use a send-only restricted key.
+    RESEND_API_KEY: str = ""
     EMAIL_FROM: str = "noreply@textara.app"
+    EMAIL_FROM_NAME: str = "Textara"
     # Where support/feedback submissions are forwarded.
     SUPPORT_EMAIL: str = "support@textara.app"
     FEEDBACK_RATE_LIMIT: str = "3/hour"

@@ -101,7 +101,9 @@ jobs:
         env:
           AUTH_DATABASE_URL: ${{ secrets.AUTH_DATABASE_URL }}
           AUTH_SECRET_KEY: ${{ secrets.AUTH_SECRET_KEY }}
-          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
           ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
           RABBITMQ_PASS: ${{ secrets.RABBITMQ_PASS }}
           R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
@@ -114,8 +116,10 @@ jobs:
           kubectl create secret generic auth-service-secret \
             --from-literal=DATABASE_URL="$AUTH_DATABASE_URL" \
             --from-literal=SECRET_KEY="$AUTH_SECRET_KEY" \
-            --from-literal=SENDGRID_API_KEY="$SENDGRID_API_KEY" \
+            --from-literal=RESEND_API_KEY="$RESEND_API_KEY" \
             --from-literal=ADMIN_API_KEY="$ADMIN_API_KEY" \
+            --from-literal=STRIPE_SECRET_KEY="$STRIPE_SECRET_KEY" \
+            --from-literal=STRIPE_WEBHOOK_SECRET="$STRIPE_WEBHOOK_SECRET" \
             --namespace=textara --dry-run=client -o yaml | kubectl apply -f -
 
           kubectl create secret generic doc-manager-secret \
