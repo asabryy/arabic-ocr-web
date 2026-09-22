@@ -52,3 +52,12 @@ export const refreshToken = async () => {
   const response = await authApi.post("/refresh");
   return response.data.access_token;
 };
+
+/**
+ * Ask for a fresh verification email. The server rate-limits this to once every
+ * 5 minutes and answers 400 if the address is already verified.
+ */
+export const resendVerificationEmail = async () => {
+  const response = await authApi.post("/verify-email/resend");
+  return response.data;
+};

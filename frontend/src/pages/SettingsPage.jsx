@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../auth/AuthContext";
-import { updateCurrentUser } from "../features/auth/authservice";
+import { updateCurrentUser, resendVerificationEmail } from "../features/auth/authservice";
 import { createPortalSession } from "../api/billing";
 import { PLAN_PRO } from "../constants/plans";
 import { useUpgrade } from "../hooks/useUpgrade";
@@ -32,7 +32,19 @@ function SettingsPage() {
     }
   };
 
-  const resendVerification = () => setStatus("verification_sent");
+  const [resendState, setResendState] = useState("idle"); // idle|sending|sent|limited|error
+
+  const resendVerification = async () => {
+    setResendState("sending");
+    try {
+      await resendVerificationEmail();
+      setResendState("sent");
+    } catch (err) {
+      // 429 is the server's 1-per-5-minutes guard, which is worth saying plainly
+      // rather than reporting as a generic failure.
+      setResendState(err?.response?.status === 429 ? "limited" : "error");
+    }
+  };
 
   // Card changes, invoices and cancellation all live in Stripe's portal — there is
   // deliberately no in-app subscription management UI to keep in sync.
@@ -72,14 +84,32 @@ function SettingsPage() {
             <input type="email" value={email} className="field-input opacity-50 cursor-not-allowed" disabled />
           </div>
 
-          {!user?.is_verified && (
+          {/* The API field is email_verified; this used to read user.is_verified,
+              which is always undefined — so the warning showed to everyone. */}
+          {!user?.email_verified && (
             <div className="flex items-start gap-2 px-3 py-2.5 bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 text-sm">
               <span className="text-amber-500 mt-0.5">⚠</span>
               <span className="text-amber-700 dark:text-amber-400">
-                Email not verified.{" "}
-                <button onClick={resendVerification} className="underline text-indigo-500 hover:text-indigo-600">
-                  Resend verification email
-                </button>
+                {t("verify.notVerified")}{" "}
+                {resendState === "sent" ? (
+                  <span className="text-emerald-600 dark:text-emerald-400">{t("verify.sent")}</span>
+                ) : (
+                  <button
+                    onClick={resendVerification}
+                    disabled={resendState === "sending"}
+                    className="underline text-indigo-500 hover:text-indigo-600 disabled:opacity-60"
+                  >
+                    {resendState === "sending" ? t("verify.sending") : t("verify.resend")}
+                  </button>
+                )}
+                {resendState === "limited" && (
+                  <span className="block text-xs text-amber-600 dark:text-amber-500 mt-1">
+                    {t("verify.limited")}
+                  </span>
+                )}
+                {resendState === "error" && (
+                  <span className="block text-xs text-red-500 mt-1">{t("verify.error")}</span>
+                )}
               </span>
             </div>
           )}
@@ -90,7 +120,6 @@ function SettingsPage() {
             </button>
             {status === "saved" && <p className="text-xs text-emerald-600 dark:text-emerald-400">Saved successfully.</p>}
             {status === "error" && <p className="text-xs text-red-500">Failed to update. Please try again.</p>}
-            {status === "verification_sent" && <p className="text-xs text-indigo-500">Verification email sent.</p>}
           </div>
         </div>
       </div>
