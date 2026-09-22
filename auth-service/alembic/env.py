@@ -8,7 +8,7 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from app.db.base import Base
-from app.models import usage, user  # noqa: F401  # Import all your models here
+from app.models import billing, usage, user  # noqa: F401  # Import all your models here
 
 from app.core.config import Settings
 

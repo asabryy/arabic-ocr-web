@@ -1,9 +1,17 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../auth/AuthContext";
 import { updateCurrentUser } from "../features/auth/authservice";
+import { createPortalSession } from "../api/billing";
+import { PLAN_PRO } from "../constants/plans";
+import { useUpgrade } from "../hooks/useUpgrade";
 
 function SettingsPage() {
+  const { t } = useTranslation();
   const { user, login } = useAuth();
+  const { startUpgrade, loading: upgrading } = useUpgrade();
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [portalError, setPortalError] = useState(false);
   const [name, setName] = useState(user?.name || "");
   const [email] = useState(user?.email || "");
   const [status, setStatus] = useState("");
@@ -25,6 +33,19 @@ function SettingsPage() {
   };
 
   const resendVerification = () => setStatus("verification_sent");
+
+  // Card changes, invoices and cancellation all live in Stripe's portal — there is
+  // deliberately no in-app subscription management UI to keep in sync.
+  const openPortal = async () => {
+    setPortalLoading(true);
+    setPortalError(false);
+    try {
+      window.location.assign(await createPortalSession());
+    } catch {
+      setPortalError(true);
+      setPortalLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6 animate-fade-in max-w-lg">
@@ -71,6 +92,37 @@ function SettingsPage() {
             {status === "error" && <p className="text-xs text-red-500">Failed to update. Please try again.</p>}
             {status === "verification_sent" && <p className="text-xs text-indigo-500">Verification email sent.</p>}
           </div>
+        </div>
+      </div>
+
+      <div className="border border-zinc-200 dark:border-zinc-800 border-t-2 border-t-indigo-500">
+        <div className="px-5 py-4 border-b border-zinc-100 dark:border-zinc-800">
+          <p className="section-label">{t("billing.section")}</p>
+        </div>
+        <div className="px-5 py-5 space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm text-zinc-700 dark:text-zinc-300">
+                {t("billing.currentPlan")}{" "}
+                <span className="font-semibold">
+                  {user?.plan === PLAN_PRO ? t("plans.pro") : t("plans.free")}
+                </span>
+              </p>
+              <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
+                {user?.plan === PLAN_PRO ? t("billing.manageHint") : t("billing.upgradeHint")}
+              </p>
+            </div>
+            {user?.plan === PLAN_PRO ? (
+              <button onClick={openPortal} disabled={portalLoading} className="btn-secondary px-4 py-2 shrink-0">
+                {portalLoading ? t("billing.redirecting") : t("billing.manage")}
+              </button>
+            ) : (
+              <button onClick={startUpgrade} disabled={upgrading} className="btn-primary px-4 py-2 shrink-0">
+                {upgrading ? t("billing.redirecting") : t("pricing.cta.upgrade")}
+              </button>
+            )}
+          </div>
+          {portalError && <p className="text-xs text-red-500">{t("billing.errors.failed")}</p>}
         </div>
       </div>
     </div>

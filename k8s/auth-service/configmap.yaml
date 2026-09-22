@@ -15,3 +15,7 @@ data:
   CORS_ORIGINS: '["https://textara.app","https://www.textara.app"]'
   # Injected at deploy time via CI secret GOOGLE_CLIENT_ID
   GOOGLE_CLIENT_ID: ""
+  # Stripe object ids are not secrets. Set once the Pro product exists.
+  STRIPE_PRICE_PRO: ""
+  STRIPE_PRODUCT_PRO: ""
+  STRIPE_API_VERSION: "2026-08-26.dahlia"

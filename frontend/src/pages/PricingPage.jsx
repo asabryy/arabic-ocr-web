@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Check } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
-import { UPGRADE_PATH, PLAN_PRO } from "../constants/plans";
+import { PLAN_PRO } from "../constants/plans";
+import { useUpgrade } from "../hooks/useUpgrade";
 
 const PLANS = [
   { id: "free", price: "$0",    accent: false, features: ["daily", "perDoc", "trial"] },
@@ -18,6 +19,7 @@ const PLANS = [
  */
 function PlanCta({ plan, user, openRegister }) {
   const { t } = useTranslation();
+  const { startUpgrade, loading, error } = useUpgrade();
   const cls = plan.accent ? "btn-primary justify-center py-2.5" : "btn-secondary justify-center py-2.5";
   const currentPlan = user?.plan === PLAN_PRO ? PLAN_PRO : "free";
 
@@ -37,9 +39,16 @@ function PlanCta({ plan, user, openRegister }) {
   }
   if (plan.id === PLAN_PRO) {
     return (
-      <Link to={UPGRADE_PATH} className={cls}>
-        {t("pricing.cta.upgrade")}
-      </Link>
+      <>
+        <button onClick={startUpgrade} disabled={loading} className={cls}>
+          {loading ? t("billing.redirecting") : t("pricing.cta.upgrade")}
+        </button>
+        {error && (
+          <p className="text-xs text-red-500 mt-2 text-center">
+            {t(error === "already_pro" ? "billing.errors.alreadyPro" : "billing.errors.failed")}
+          </p>
+        )}
+      </>
     );
   }
   return null; // pro user looking at the free card

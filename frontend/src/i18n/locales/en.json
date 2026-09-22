@@ -266,5 +266,31 @@
       "upgrade": "Upgrade to Pro",
       "current": "Current plan"
     }
+  },
+  "billing": {
+    "section": "Billing",
+    "currentPlan": "Current plan:",
+    "manage": "Manage billing",
+    "manageHint": "Update your card, view invoices or cancel anytime.",
+    "upgradeHint": "Upgrade for 300 pages a day and larger documents.",
+    "redirecting": "Redirecting…",
+    "success": {
+      "title": "You're on Pro",
+      "body": "Your subscription is active. Higher limits apply right away.",
+      "cta": "Start converting"
+    },
+    "confirming": {
+      "title": "Confirming your payment",
+      "body": "This usually takes a few seconds."
+    },
+    "pending": {
+      "title": "Payment received",
+      "body": "Your plan is taking longer than usual to update. It should apply shortly — refresh the page, or contact us if it doesn't."
+    },
+    "backToDashboard": "Back to dashboard",
+    "errors": {
+      "failed": "Couldn't reach the payment page. Please try again.",
+      "alreadyPro": "You're already on Pro. Refresh to see your plan."
+    }
   }
 }

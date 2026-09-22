@@ -40,6 +40,16 @@ jobs:
         run: |
           uv sync --frozen
           uv run pytest -q --no-cov
+      - name: auth-service — lint
+        working-directory: auth-service
+        run: uvx ruff check app tests
+      - name: auth-service — tests (billing/webhook; SQLite, no network)
+        working-directory: auth-service
+        env:
+          DATABASE_URL: sqlite://
+        run: |
+          uv sync --frozen
+          uv run pytest -q --no-cov
 
   build:
     runs-on: ubuntu-latest

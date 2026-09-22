@@ -1,9 +1,9 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router-dom";
 import { Gauge } from "lucide-react";
 import Modal from "../ui/Modal";
-import { UPGRADE_PATH, PLAN_PRO } from "../../constants/plans";
+import { PLAN_PRO } from "../../constants/plans";
+import { useUpgrade } from "../../hooks/useUpgrade";
 
 /**
  * Shown when the API answers 402 with a plan-quota detail
@@ -12,6 +12,7 @@ import { UPGRADE_PATH, PLAN_PRO } from "../../constants/plans";
  */
 function LimitModal({ detail, onClose }) {
   const { t } = useTranslation();
+  const { startUpgrade, loading } = useUpgrade();
   if (!detail) return null;
 
   const isDaily = detail.code === "daily_pages_exceeded";
@@ -39,9 +40,13 @@ function LimitModal({ detail, onClose }) {
           {t("limits.close")}
         </button>
         {!isPro && (
-          <Link to={UPGRADE_PATH} onClick={onClose} className="btn-primary justify-center px-4 py-2 text-sm">
-            {t("limits.upgradeCta")}
-          </Link>
+          <button
+            onClick={startUpgrade}
+            disabled={loading}
+            className="btn-primary justify-center px-4 py-2 text-sm"
+          >
+            {loading ? t("billing.redirecting") : t("limits.upgradeCta")}
+          </button>
         )}
       </div>
     </Modal>
