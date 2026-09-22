@@ -287,4 +287,7 @@ jobs:
           GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
           GRAFANA_DB_PASSWORD: ${{ secrets.GRAFANA_DB_PASSWORD }}
           AUTH_DATABASE_URL: ${{ secrets.AUTH_DATABASE_URL }}
+          # Telegram/ntfy webhook. Alerts must not route to email: the first
+          # rule fires when email is broken.
+          ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
         run: python3 scripts/grafana_provision.py

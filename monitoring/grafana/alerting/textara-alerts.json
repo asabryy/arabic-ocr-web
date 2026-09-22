@@ -1,0 +1,697 @@
+{
+  "name": "textara",
+  "folder": "Textara",
+  "interval": "1m",
+  "rules": [
+    {
+      "uid": "txa-email-failed",
+      "title": "Email sending is failing",
+      "condition": "C",
+      "for": "5m",
+      "labels": {
+        "severity": "page"
+      },
+      "annotations": {
+        "summary": "Transactional email is being rejected. Verification and password reset are not reaching users. This ran undetected for weeks in Sep 2026."
+      },
+      "noDataState": "OK",
+      "execErrState": "Alerting",
+      "data": [
+        {
+          "refId": "A",
+          "relativeTimeRange": {
+            "from": 3600,
+            "to": 0
+          },
+          "datasourceUid": "prometheus",
+          "model": {
+            "refId": "A",
+            "expr": "sum(increase(textara_emails_total{outcome=\"failed\"}[30m])) or vector(0)",
+            "instant": true,
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
+          }
+        },
+        {
+          "refId": "C",
+          "datasourceUid": "__expr__",
+          "model": {
+            "refId": "C",
+            "type": "threshold",
+            "expression": "A",
+            "datasource": {
+              "type": "__expr__",
+              "uid": "__expr__"
+            },
+            "conditions": [
+              {
+                "evaluator": {
+                  "type": "gt",
+                  "params": [
+                    0
+                  ]
+                },
+                "operator": {
+                  "type": "and"
+                },
+                "query": {
+                  "params": [
+                    "A"
+                  ]
+                },
+                "reducer": {
+                  "type": "last",
+                  "params": []
+                },
+                "type": "query"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "uid": "txa-email-silent",
+      "title": "Signups happening but no verification mail leaving",
+      "condition": "C",
+      "for": "15m",
+      "labels": {
+        "severity": "page"
+      },
+      "annotations": {
+        "summary": "Password signups are arriving but no verification email has been sent in 6h."
+      },
+      "noDataState": "OK",
+      "execErrState": "Alerting",
+      "data": [
+        {
+          "refId": "A",
+          "relativeTimeRange": {
+            "from": 3600,
+            "to": 0
+          },
+          "datasourceUid": "prometheus",
+          "model": {
+            "refId": "A",
+            "expr": "(sum(increase(textara_signups_total{method=\"password\"}[6h])) or vector(0)) > 0 and on() (sum(increase(textara_emails_total{kind=\"verification\",outcome=\"sent\"}[6h])) or vector(0)) == 0",
+            "instant": true,
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
+          }
+        },
+        {
+          "refId": "C",
+          "datasourceUid": "__expr__",
+          "model": {
+            "refId": "C",
+            "type": "threshold",
+            "expression": "A",
+            "datasource": {
+              "type": "__expr__",
+              "uid": "__expr__"
+            },
+            "conditions": [
+              {
+                "evaluator": {
+                  "type": "gt",
+                  "params": [
+                    0
+                  ]
+                },
+                "operator": {
+                  "type": "and"
+                },
+                "query": {
+                  "params": [
+                    "A"
+                  ]
+                },
+                "reducer": {
+                  "type": "last",
+                  "params": []
+                },
+                "type": "query"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "uid": "txa-gemini-error",
+      "title": "Gemini OCR calls are erroring",
+      "condition": "C",
+      "for": "10m",
+      "labels": {
+        "severity": "page"
+      },
+      "annotations": {
+        "summary": "Gemini is failing after retries \u2014 usually billing (402) or an expired key. Every conversion fails while this is true."
+      },
+      "noDataState": "OK",
+      "execErrState": "Alerting",
+      "data": [
+        {
+          "refId": "A",
+          "relativeTimeRange": {
+            "from": 3600,
+            "to": 0
+          },
+          "datasourceUid": "prometheus",
+          "model": {
+            "refId": "A",
+            "expr": "sum(increase(gemini_requests_total{outcome=\"error\"}[1h])) or vector(0)",
+            "instant": true,
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
+          }
+        },
+        {
+          "refId": "C",
+          "datasourceUid": "__expr__",
+          "model": {
+            "refId": "C",
+            "type": "threshold",
+            "expression": "A",
+            "datasource": {
+              "type": "__expr__",
+              "uid": "__expr__"
+            },
+            "conditions": [
+              {
+                "evaluator": {
+                  "type": "gt",
+                  "params": [
+                    3
+                  ]
+                },
+                "operator": {
+                  "type": "and"
+                },
+                "query": {
+                  "params": [
+                    "A"
+                  ]
+                },
+                "reducer": {
+                  "type": "last",
+                  "params": []
+                },
+                "type": "query"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "uid": "txa-conversions-failing",
+      "title": "Conversions are failing",
+      "condition": "C",
+      "for": "10m",
+      "labels": {
+        "severity": "page"
+      },
+      "annotations": {
+        "summary": "Users are uploading documents and not getting Word files back."
+      },
+      "noDataState": "OK",
+      "execErrState": "Alerting",
+      "data": [
+        {
+          "refId": "A",
+          "relativeTimeRange": {
+            "from": 3600,
+            "to": 0
+          },
+          "datasourceUid": "prometheus",
+          "model": {
+            "refId": "A",
+            "expr": "sum(increase(ocr_requests_total{status=\"error\"}[1h])) or vector(0)",
+            "instant": true,
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
+          }
+        },
+        {
+          "refId": "C",
+          "datasourceUid": "__expr__",
+          "model": {
+            "refId": "C",
+            "type": "threshold",
+            "expression": "A",
+            "datasource": {
+              "type": "__expr__",
+              "uid": "__expr__"
+            },
+            "conditions": [
+              {
+                "evaluator": {
+                  "type": "gt",
+                  "params": [
+                    2
+                  ]
+                },
+                "operator": {
+                  "type": "and"
+                },
+                "query": {
+                  "params": [
+                    "A"
+                  ]
+                },
+                "reducer": {
+                  "type": "last",
+                  "params": []
+                },
+                "type": "query"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "uid": "txa-queue-stuck",
+      "title": "OCR queue is not draining",
+      "condition": "C",
+      "for": "30m",
+      "labels": {
+        "severity": "page"
+      },
+      "annotations": {
+        "summary": "Work is queued but not being consumed \u2014 typically a dead worker whose process is still alive."
+      },
+      "noDataState": "OK",
+      "execErrState": "Alerting",
+      "data": [
+        {
+          "refId": "A",
+          "relativeTimeRange": {
+            "from": 3600,
+            "to": 0
+          },
+          "datasourceUid": "prometheus",
+          "model": {
+            "refId": "A",
+            "expr": "sum(rabbitmq_queue_messages_ready{namespace=\"textara\"}) or vector(0)",
+            "instant": true,
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
+          }
+        },
+        {
+          "refId": "C",
+          "datasourceUid": "__expr__",
+          "model": {
+            "refId": "C",
+            "type": "threshold",
+            "expression": "A",
+            "datasource": {
+              "type": "__expr__",
+              "uid": "__expr__"
+            },
+            "conditions": [
+              {
+                "evaluator": {
+                  "type": "gt",
+                  "params": [
+                    5
+                  ]
+                },
+                "operator": {
+                  "type": "and"
+                },
+                "query": {
+                  "params": [
+                    "A"
+                  ]
+                },
+                "reducer": {
+                  "type": "last",
+                  "params": []
+                },
+                "type": "query"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "uid": "txa-service-down",
+      "title": "A Textara service is down",
+      "condition": "C",
+      "for": "10m",
+      "labels": {
+        "severity": "page"
+      },
+      "annotations": {
+        "summary": "A pod is failing its scrape. Scoped to kubernetes-pods deliberately."
+      },
+      "noDataState": "OK",
+      "execErrState": "Alerting",
+      "data": [
+        {
+          "refId": "A",
+          "relativeTimeRange": {
+            "from": 3600,
+            "to": 0
+          },
+          "datasourceUid": "prometheus",
+          "model": {
+            "refId": "A",
+            "expr": "sum(up{job=\"kubernetes-pods\",namespace=\"textara\"} == 0) or vector(0)",
+            "instant": true,
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
+          }
+        },
+        {
+          "refId": "C",
+          "datasourceUid": "__expr__",
+          "model": {
+            "refId": "C",
+            "type": "threshold",
+            "expression": "A",
+            "datasource": {
+              "type": "__expr__",
+              "uid": "__expr__"
+            },
+            "conditions": [
+              {
+                "evaluator": {
+                  "type": "gt",
+                  "params": [
+                    0
+                  ]
+                },
+                "operator": {
+                  "type": "and"
+                },
+                "query": {
+                  "params": [
+                    "A"
+                  ]
+                },
+                "reducer": {
+                  "type": "last",
+                  "params": []
+                },
+                "type": "query"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "uid": "txa-api-5xx",
+      "title": "API is returning 5xx",
+      "condition": "C",
+      "for": "10m",
+      "labels": {
+        "severity": "page"
+      },
+      "annotations": {
+        "summary": "Server errors on the API \u2014 the most general 'something is broken' signal."
+      },
+      "noDataState": "OK",
+      "execErrState": "Alerting",
+      "data": [
+        {
+          "refId": "A",
+          "relativeTimeRange": {
+            "from": 3600,
+            "to": 0
+          },
+          "datasourceUid": "prometheus",
+          "model": {
+            "refId": "A",
+            "expr": "sum(increase(http_requests_total{namespace=\"textara\",status=\"5xx\"}[15m])) or vector(0)",
+            "instant": true,
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
+          }
+        },
+        {
+          "refId": "C",
+          "datasourceUid": "__expr__",
+          "model": {
+            "refId": "C",
+            "type": "threshold",
+            "expression": "A",
+            "datasource": {
+              "type": "__expr__",
+              "uid": "__expr__"
+            },
+            "conditions": [
+              {
+                "evaluator": {
+                  "type": "gt",
+                  "params": [
+                    2
+                  ]
+                },
+                "operator": {
+                  "type": "and"
+                },
+                "query": {
+                  "params": [
+                    "A"
+                  ]
+                },
+                "reducer": {
+                  "type": "last",
+                  "params": []
+                },
+                "type": "query"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "uid": "txa-stripe-broken",
+      "title": "Stripe events are not being applied",
+      "condition": "C",
+      "for": "5m",
+      "labels": {
+        "severity": "page"
+      },
+      "annotations": {
+        "summary": "Either the webhook secret no longer matches Stripe, or a payment mapped to no account. Someone has paid and has no Pro."
+      },
+      "noDataState": "OK",
+      "execErrState": "Alerting",
+      "data": [
+        {
+          "refId": "A",
+          "relativeTimeRange": {
+            "from": 3600,
+            "to": 0
+          },
+          "datasourceUid": "prometheus",
+          "model": {
+            "refId": "A",
+            "expr": "sum(increase(textara_stripe_events_total{outcome=~\"no_user|invalid_signature\"}[1h])) or vector(0)",
+            "instant": true,
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
+          }
+        },
+        {
+          "refId": "C",
+          "datasourceUid": "__expr__",
+          "model": {
+            "refId": "C",
+            "type": "threshold",
+            "expression": "A",
+            "datasource": {
+              "type": "__expr__",
+              "uid": "__expr__"
+            },
+            "conditions": [
+              {
+                "evaluator": {
+                  "type": "gt",
+                  "params": [
+                    0
+                  ]
+                },
+                "operator": {
+                  "type": "and"
+                },
+                "query": {
+                  "params": [
+                    "A"
+                  ]
+                },
+                "reducer": {
+                  "type": "last",
+                  "params": []
+                },
+                "type": "query"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "uid": "txa-disk",
+      "title": "Node disk is nearly full",
+      "condition": "C",
+      "for": "30m",
+      "labels": {
+        "severity": "digest"
+      },
+      "annotations": {
+        "summary": "Root filesystem above 85%. Loki retention is the usual cause."
+      },
+      "noDataState": "OK",
+      "execErrState": "Alerting",
+      "data": [
+        {
+          "refId": "A",
+          "relativeTimeRange": {
+            "from": 3600,
+            "to": 0
+          },
+          "datasourceUid": "prometheus",
+          "model": {
+            "refId": "A",
+            "expr": "100 * (1 - sum(container_fs_free_bytes{id=\"/\",device=~\"/dev/.*\"}) / sum(container_fs_limit_bytes{id=\"/\",device=~\"/dev/.*\"}))",
+            "instant": true,
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
+          }
+        },
+        {
+          "refId": "C",
+          "datasourceUid": "__expr__",
+          "model": {
+            "refId": "C",
+            "type": "threshold",
+            "expression": "A",
+            "datasource": {
+              "type": "__expr__",
+              "uid": "__expr__"
+            },
+            "conditions": [
+              {
+                "evaluator": {
+                  "type": "gt",
+                  "params": [
+                    85
+                  ]
+                },
+                "operator": {
+                  "type": "and"
+                },
+                "query": {
+                  "params": [
+                    "A"
+                  ]
+                },
+                "reducer": {
+                  "type": "last",
+                  "params": []
+                },
+                "type": "query"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "uid": "txa-gemini-spend",
+      "title": "Gemini spend is unusually high",
+      "condition": "C",
+      "for": "15m",
+      "labels": {
+        "severity": "digest"
+      },
+      "annotations": {
+        "summary": "Estimated Gemini spend over 24h exceeded the expected ceiling \u2014 abuse, a retry loop, or genuine growth."
+      },
+      "noDataState": "OK",
+      "execErrState": "Alerting",
+      "data": [
+        {
+          "refId": "A",
+          "relativeTimeRange": {
+            "from": 3600,
+            "to": 0
+          },
+          "datasourceUid": "prometheus",
+          "model": {
+            "refId": "A",
+            "expr": "sum(increase(gemini_cost_usd_total[24h])) or vector(0)",
+            "instant": true,
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
+          }
+        },
+        {
+          "refId": "C",
+          "datasourceUid": "__expr__",
+          "model": {
+            "refId": "C",
+            "type": "threshold",
+            "expression": "A",
+            "datasource": {
+              "type": "__expr__",
+              "uid": "__expr__"
+            },
+            "conditions": [
+              {
+                "evaluator": {
+                  "type": "gt",
+                  "params": [
+                    2
+                  ]
+                },
+                "operator": {
+                  "type": "and"
+                },
+                "query": {
+                  "params": [
+                    "A"
+                  ]
+                },
+                "reducer": {
+                  "type": "last",
+                  "params": []
+                },
+                "type": "query"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
