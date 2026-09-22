@@ -7,6 +7,7 @@ import AuthLayout from "../layouts/AuthLayout";
 import LoginModal from "../components/auth/LoginModal";
 import SignupModal from "../components/auth/SignupModal";
 import LimitModal from "../components/usage/LimitModal";
+import FeedbackModal from "../components/feedback/FeedbackModal";
 import { onQuotaExceeded } from "../api/client";
 
 import LandingPage from "../pages/LandingPage";
@@ -20,6 +21,7 @@ import ResetPasswordPage from "../pages/ResetPasswordPage";
 import VerifyEmail from "../pages/VerifyEmail";
 import SettingsPage from "../pages/SettingsPage";
 import PricingPage from "../pages/PricingPage";
+import BillingSuccess from "../pages/BillingSuccess";
 import ComingSoon from "../pages/ComingSoon";
 import NotFound from "../pages/NotFound";
 
@@ -69,6 +71,7 @@ function RouterContent() {
       <Route path="/convert" element={<ProtectedRoute><ConvertPage /></ProtectedRoute>} />
       <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+      <Route path="/billing/success" element={<ProtectedRoute><BillingSuccess /></ProtectedRoute>} />
       <Route path="/pricing" element={<PricingPage openLogin={openLogin} openRegister={openRegister} />} />
       <Route path="/coming-soon" element={<ComingSoon />} />
       <Route path="*" element={<NotFound />} />
@@ -94,6 +97,7 @@ function RouterContent() {
       {showLogin && <LoginModal isOpen onClose={closeModals} />}
       {showRegister && <SignupModal isOpen onClose={closeModals} />}
       {limitDetail && <LimitModal detail={limitDetail} onClose={() => setLimitDetail(null)} />}
+      <FeedbackModal />
     </>
   );
 }

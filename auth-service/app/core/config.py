@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     # Email (SendGrid) — optional; email sending is skipped if empty
     SENDGRID_API_KEY: str = ""
     EMAIL_FROM: str = "noreply@textara.app"
+    # Where support/feedback submissions are forwarded.
+    SUPPORT_EMAIL: str = "support@textara.app"
+    FEEDBACK_RATE_LIMIT: str = "3/hour"
 
     # Frontend (for verification links)
     FRONTEND_BASE_URL: str = "https://textara.app"
@@ -38,6 +41,21 @@ class Settings(BaseSettings):
 
     # Admin API — empty disables the /admin routes (they return 404)
     ADMIN_API_KEY: str = ""
+
+    # ── Stripe billing ────────────────────────────────────────────────────────
+    # Empty STRIPE_SECRET_KEY disables the /billing routes (they return 404), so an
+    # unconfigured deployment exposes nothing — same posture as the admin API above.
+    # Prefer a restricted key (rk_...) scoped to Checkout/Customers/Billing Portal.
+    STRIPE_SECRET_KEY: str = ""
+    STRIPE_WEBHOOK_SECRET: str = ""
+    # Price the Pro tier checks out with (price_...). Created in the Stripe Dashboard.
+    STRIPE_PRICE_PRO: str = ""
+    # Optional product gate (prod_...). When set, only a subscription to this product
+    # grants Pro — so repricing means a new Price, not a code change. When empty, any
+    # live subscription grants Pro.
+    STRIPE_PRODUCT_PRO: str = ""
+    # Pin the API version so Stripe-side upgrades can't change payload shapes under us.
+    STRIPE_API_VERSION: str = "2026-08-26.dahlia"
 
     # CORS — comma-separated list of allowed origins
     CORS_ORIGINS: list[str] = [

@@ -7,6 +7,9 @@ data:
   ALGORITHM: "HS256"
   ACCESS_TOKEN_EXPIRES_MINUTES: "30"
   EMAIL_FROM: "noreply@textara.app"
+  # Inbox that support/feedback submissions are forwarded to
+  SUPPORT_EMAIL: "support@textara.app"
+  FEEDBACK_RATE_LIMIT: "3/hour"
   FRONTEND_BASE_URL: "https://textara.app"
   REGISTER_RATE_LIMIT: "5/minute"
   LOGIN_RATE_LIMIT: "5/minute"
@@ -15,3 +18,7 @@ data:
   CORS_ORIGINS: '["https://textara.app","https://www.textara.app"]'
   # Injected at deploy time via CI secret GOOGLE_CLIENT_ID
   GOOGLE_CLIENT_ID: ""
+  # Stripe object ids are not secrets. Set once the Pro product exists.
+  STRIPE_PRICE_PRO: ""
+  STRIPE_PRODUCT_PRO: ""
+  STRIPE_API_VERSION: "2026-08-26.dahlia"

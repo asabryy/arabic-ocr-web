@@ -1,6 +1,5 @@
-// The single seam for self-serve billing. When Stripe Checkout lands, point this at
-// the checkout route; every "Upgrade" CTA (pricing page, limit modal) imports it.
-export const UPGRADE_PATH = "/coming-soon";
-
+// Plan identifiers shared by the pricing page, usage meter and limit modal.
+// Upgrading is an action, not a route: see hooks/useUpgrade.js, which mints a Stripe
+// Checkout Session and hands the browser to Stripe's hosted page.
 export const PLAN_FREE = "free";
 export const PLAN_PRO = "pro";

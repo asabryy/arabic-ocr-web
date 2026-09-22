@@ -69,9 +69,16 @@ _RETRY_HINT_RE = re.compile(r"retry in (\d+(?:\.\d+)?)\s*s", re.IGNORECASE)
 
 
 def _classify(exc: Exception) -> str:
-    """'429' (rate limited), '503' (overloaded/unavailable) or 'other'."""
+    """'429' (rate limited), '503' (overloaded/unavailable) or 'other'.
+
+    Order matters: a depleted-billing 402 also carries a RESOURCE_EXHAUSTED status, so it
+    has to be matched before the 429 rule — retrying it just burns minutes per page and
+    fails anyway. It needs an operator to top up credits, so fail fast and surface it.
+    """
     code = getattr(exc, "code", None)
     msg = str(exc)
+    if code == 402:
+        return "other"
     if code == 429 or "RESOURCE_EXHAUSTED" in msg:
         return "429"
     if code == 503 or "UNAVAILABLE" in msg or "overloaded" in msg.lower():

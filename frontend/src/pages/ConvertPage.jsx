@@ -15,6 +15,7 @@ import Dropzone from "../components/upload/Dropzone";
 import UsageMeter from "../components/usage/UsageMeter";
 import PlanBadge from "../components/usage/PlanBadge";
 import { useUsage } from "../hooks/useUsage";
+import { openFeedback } from "../api/feedback";
 import { emitUsageChanged } from "../api/client";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -483,10 +484,25 @@ function ConvertPage() {
                             </button>
                           )}
                           {doc.status === "failed" && (
-                            <button onClick={() => handleConvert(doc.filename)} disabled={busy} className="btn-secondary text-xs px-2.5 py-1 gap-1">
-                              {isConverting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
-                              {t("convert.actions.retry")}
-                            </button>
+                            <>
+                              <button onClick={() => handleConvert(doc.filename)} disabled={busy} className="btn-secondary text-xs px-2.5 py-1 gap-1">
+                                {isConverting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+                                {t("convert.actions.retry")}
+                              </button>
+                              {/* The one place a broken conversion can be reported while
+                                  the user still has the failing document in front of them. */}
+                              <button
+                                onClick={() =>
+                                  openFeedback({
+                                    category: "bug",
+                                    page: `/convert (failed: ${doc.filename})`,
+                                  })
+                                }
+                                className="text-xs font-medium px-2 py-1 text-zinc-400 hover:text-indigo-500 transition-colors"
+                              >
+                                {t("convert.actions.reportProblem")}
+                              </button>
+                            </>
                           )}
                           {doc.status === "done" && (
                             <button onClick={() => downloadDocument(doc.filename.replace(/\.pdf$/, ".docx"))}

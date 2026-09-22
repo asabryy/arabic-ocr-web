@@ -1,7 +1,7 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router-dom";
-import { UPGRADE_PATH, PLAN_PRO } from "../../constants/plans";
+import { PLAN_PRO } from "../../constants/plans";
+import { useUpgrade } from "../../hooks/useUpgrade";
 
 /**
  * "N / M pages today" bar. Pass the object from useUsage(); renders a skeleton
@@ -9,6 +9,8 @@ import { UPGRADE_PATH, PLAN_PRO } from "../../constants/plans";
  */
 function UsageMeter({ usage, loading, compact = false }) {
   const { t } = useTranslation();
+  // Renamed: `loading` here is the usage fetch, not the checkout redirect.
+  const { startUpgrade, loading: upgrading } = useUpgrade();
 
   if (loading) return <div className={`skel h-4 ${compact ? "w-32" : "w-44"}`} />;
   if (!usage) return null;
@@ -25,9 +27,13 @@ function UsageMeter({ usage, loading, compact = false }) {
           {t("usage.today", { used, limit })}
         </span>
         {plan !== PLAN_PRO && atLimit && (
-          <Link to={UPGRADE_PATH} className="text-xs font-medium text-indigo-500 hover:text-indigo-600">
-            {t("plans.upgrade")}
-          </Link>
+          <button
+            onClick={startUpgrade}
+            disabled={upgrading}
+            className="text-xs font-medium text-indigo-500 hover:text-indigo-600"
+          >
+            {upgrading ? t("billing.redirecting") : t("plans.upgrade")}
+          </button>
         )}
       </div>
       <div className="h-1.5 w-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden" aria-hidden>

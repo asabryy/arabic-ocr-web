@@ -40,8 +40,11 @@ spec:
                 name: doc-manager-secret
           resources:
             requests:
-              memory: "128Mi"
+              # Idles around 370Mi once PyMuPDF and the genai client are loaded.
+              memory: "384Mi"
               cpu: "100m"
             limits:
-              memory: "512Mi"
+              # Rendering a page to PNG spikes well past 512Mi on large scans — that cap
+              # was OOMKilling the worker mid-task. The node has ~18Gi free.
+              memory: "1Gi"
               cpu: "500m"

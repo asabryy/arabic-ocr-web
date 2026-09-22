@@ -149,3 +149,32 @@ def test_retry_delay_parsing_variants():
     assert pipeline._classify(err429()) == "429"
     assert pipeline._classify(err503()) == "503"
     assert pipeline._classify(RuntimeError("boom")) == "other"
+
+
+def err402():
+    """Billing failure. Google sends HTTP 402 with a RESOURCE_EXHAUSTED status, which
+    must NOT be mistaken for a rate limit — retrying it never succeeds."""
+    return errors.ClientError(
+        402,
+        {
+            "error": {
+                "code": 402,
+                "status": "RESOURCE_EXHAUSTED",
+                "message": (
+                    "Your prepayment credits are depleted. Please go to AI Studio at "
+                    "https://ai.studio/projects to manage your project and billing."
+                ),
+            }
+        },
+    )
+
+
+def test_402_billing_error_fails_fast_without_retrying(gemini):
+    client = gemini([err402()])
+    e0 = sample("gemini_requests_total", outcome="error", model=MODEL)
+    with pytest.raises(errors.ClientError):
+        pipeline.ocr_page(b"png")
+    assert client.calls == 1, "402 must not be retried"
+    assert gemini.sleeps == []
+    assert sample("gemini_requests_total", outcome="error", model=MODEL) == e0 + 1
+    assert pipeline._classify(err402()) == "other"
