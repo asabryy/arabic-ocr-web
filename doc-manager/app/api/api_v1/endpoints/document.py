@@ -171,20 +171,38 @@ def convert_document(
         logger.error("Quota DB unavailable: %s", e)
         raise HTTPException(status_code=503, detail="Quota service unavailable")
 
+    # Mark processing BEFORE publishing: a fast worker can finish and write "done"
+    # before this line ran, and the old ordering then overwrote it with "processing".
+    storage.set_status(user_id, filename, "processing")
+
     try:
-        publish_task({"file_id": filename, "user_id": user_id, "mode": "ocr", "pages": pages})
-        storage.set_status(user_id, filename, "processing")
-        metrics.CONVERSIONS_REQUESTED.labels(mode="ocr", plan=limits.plan).inc()
-        metrics.PAGES_REQUESTED.labels(mode="ocr", plan=limits.plan).inc(pages)
+        # The reservation day travels with the task. Refunding against "today at
+        # refund time" lands on the wrong row for anything that crosses UTC
+        # midnight, which zeroes a fresh day's counter and hands out free pages.
+        publish_task({
+            "file_id": filename,
+            "user_id": user_id,
+            "mode": "ocr",
+            "pages": pages,
+            "reserved_day": quota.today().isoformat(),
+        })
     except Exception as e:
+        # Only the publish is guarded. Anything after it means the task IS queued,
+        # and refunding then would give the pages back while the worker still runs.
         logger.error("Failed to queue task for '%s': %s", filename, e)
         metrics.ENQUEUE_FAILURES.labels(mode="ocr").inc()
-        # Give the reserved pages back — nothing was queued.
+        try:
+            storage.set_status(user_id, filename, "pending")
+        except Exception as rev:  # noqa: BLE001
+            logger.error("Could not revert status for '%s': %s", filename, rev)
         try:
             quota.release(engine, uid, pages)
         except Exception as rel:  # noqa: BLE001
             logger.error("Failed to release %d pages for user %s: %s", pages, uid, rel)
         raise HTTPException(status_code=503, detail="Failed to queue conversion task")
+
+    metrics.CONVERSIONS_REQUESTED.labels(mode="ocr", plan=limits.plan).inc()
+    metrics.PAGES_REQUESTED.labels(mode="ocr", plan=limits.plan).inc(pages)
 
     return {
         "filename": filename,

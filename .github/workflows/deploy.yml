@@ -9,7 +9,45 @@ env:
   IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}
 
 jobs:
+  # Nothing reaches production without the suite passing. deploy.yml previously ran
+  # on any push to main with no gate at all, so an unreviewed push could run an
+  # Alembic migration against the live database.
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      SECRET_KEY: ci-test-secret
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - name: doc-manager — lint + tests
+        working-directory: doc-manager
+        run: |
+          uvx ruff check app tests
+          uv sync --frozen
+          uv run pytest -q --no-cov
+      - name: auth-service — lint + tests
+        working-directory: auth-service
+        env:
+          DATABASE_URL: sqlite://
+        run: |
+          uvx ruff check app tests
+          uv sync --frozen
+          uv run pytest -q --no-cov
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
 
     steps:
@@ -143,6 +181,18 @@ jobs:
             --docker-password="$GHCR_TOKEN" \
             --namespace=textara --dry-run=client -o yaml | kubectl apply -f -
 
+      - name: Record currently-running images (for a rollback that works)
+        id: prev
+        run: |
+          # Must run before `apply`, which overwrites the live spec with the
+          # manifests' :latest tag and makes `rollout undo` useless.
+          for d in auth-service doc-manager doc-worker frontend; do
+            IMG=$(kubectl get deploy/$d -n textara \
+              -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || echo "")
+            echo "${d}=${IMG}" >> $GITHUB_OUTPUT
+            echo "previous ${d}: ${IMG:-<none>}"
+          done
+
       - name: Apply Kubernetes manifests
         # k8s/local/ is local-dev-only (postgres), never applied to prod
         # secret.yaml files are templates only — real values already written by Sync step above
@@ -188,18 +238,37 @@ jobs:
       - name: Wait for rollout
         id: rollout
         run: |
-          kubectl rollout status deployment/auth-service --namespace=textara --timeout=5m
-          kubectl rollout status deployment/doc-manager --namespace=textara --timeout=5m
-          kubectl rollout status deployment/doc-worker --namespace=textara --timeout=5m
-          kubectl rollout status deployment/frontend --namespace=textara --timeout=5m
+          # Check all four before failing, so the log names every broken service
+          # rather than only the first one.
+          FAILED=""
+          for d in auth-service doc-manager doc-worker frontend; do
+            kubectl rollout status "deployment/$d" --namespace=textara --timeout=5m || FAILED="$FAILED $d"
+          done
+          if [ -n "$FAILED" ]; then
+            echo "::error::Rollout failed for:$FAILED"
+            exit 1
+          fi
 
       - name: Rollback on failure
         if: failure() && steps.rollout.conclusion == 'failure'
         run: |
-          kubectl rollout undo deployment/auth-service --namespace=textara || true
-          kubectl rollout undo deployment/doc-manager --namespace=textara || true
-          kubectl rollout undo deployment/doc-worker --namespace=textara || true
-          kubectl rollout undo deployment/frontend --namespace=textara || true
+          # `rollout undo` would return to the revision created by this run's own
+          # `apply`, which carries the mutable :latest tag that this run just
+          # overwrote with the broken image. Restore the recorded SHA instead.
+          restore() {
+            local dep="$1" container="$2" img="$3"
+            if [ -z "$img" ] || [ "${img##*:}" = "latest" ]; then
+              echo "::warning::No pinned previous image for $dep — leaving it alone."
+              return
+            fi
+            echo "Restoring $dep to $img"
+            kubectl set image "deployment/$dep" "$container=$img" --namespace=textara || true
+            kubectl rollout status "deployment/$dep" --namespace=textara --timeout=3m || true
+          }
+          restore auth-service auth-service '${{ steps.prev.outputs.auth-service }}'
+          restore doc-manager  doc-manager  '${{ steps.prev.outputs.doc-manager }}'
+          restore doc-worker   doc-worker   '${{ steps.prev.outputs.doc-worker }}'
+          restore frontend     frontend     '${{ steps.prev.outputs.frontend }}'
 
       # ── Grafana as code (best-effort: never fails the deploy) ──────────────
       - name: Grafana — ensure read-only DB role
@@ -218,4 +287,7 @@ jobs:
           GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
           GRAFANA_DB_PASSWORD: ${{ secrets.GRAFANA_DB_PASSWORD }}
           AUTH_DATABASE_URL: ${{ secrets.AUTH_DATABASE_URL }}
+          # Telegram/ntfy webhook. Alerts must not route to email: the first
+          # rule fires when email is broken.
+          ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
         run: python3 scripts/grafana_provision.py

@@ -87,7 +87,8 @@
       "title": "No conversions yet",
       "body": "Upload an Arabic PDF on the Convert page and run OCR to get an editable Word document.",
       "cta": "Start converting"
-    }
+    },
+    "overview": "Overview"
   },
   "convert": {
     "title": "Convert",
@@ -130,7 +131,8 @@
       "uploadFailed": "Upload failed. Please try again.",
       "convertFailed": "Failed to queue conversion.",
       "previewFailed": "Failed to load preview.",
-      "deleteFailed": "Failed to delete document."
+      "deleteFailed": "Failed to delete document.",
+      "downloadFailed": "Couldn't download the file. Please try again."
     },
     "empty": {
       "title": "No files yet",
@@ -138,26 +140,6 @@
     },
     "warnings": {
       "tooManyPages": "This file has {{pages}} pages — your plan allows {{limit}} per document."
-    }
-  },
-  "fileExplorer": {
-    "loading": "Loading…",
-    "documents_one": "{{count}} document",
-    "documents_other": "{{count}} documents",
-    "uploadPdf": "Upload PDF",
-    "downloadPdf": "Download PDF",
-    "previewLoading": "Loading preview…",
-    "status": {
-      "pending": "Pending",
-      "processing": "Converting",
-      "done": "Done",
-      "failed": "Failed"
-    },
-    "empty": {
-      "title": "Convert your first document",
-      "body": "Upload an Arabic PDF and Textara will convert it to an editable Word document, preserving layout and RTL text.",
-      "upload": "Upload PDF",
-      "note": "PDF only · max 50 MB · free up to 50 pages/month"
     }
   },
   "auth": {
@@ -237,7 +219,7 @@
     "title": "Plan limit reached",
     "daily": "You've used {{used}} of {{limit}} pages today on the {{plan}} plan.",
     "doc": "This document has {{used}} pages; the {{plan}} plan allows up to {{limit}} per document.",
-    "upgradeHint": "Upgrade to Pro for 100 pages a day and up to 100 pages per document.",
+    "upgradeHint": "Upgrade to Pro for 50 pages a day and up to 40 pages per document.",
     "upgradeCta": "See Pro plan",
     "close": "Close"
   },
@@ -257,8 +239,8 @@
     "pro": {
       "desc": "Ideal for frequent users",
       "features": {
-        "daily": "100 pages per day",
-        "perDoc": "Up to 100 pages per document",
+        "daily": "50 pages per day",
+        "perDoc": "Up to 40 pages per document",
         "priority": "Priority support"
       }
     },
@@ -273,7 +255,7 @@
     "currentPlan": "Current plan:",
     "manage": "Manage billing",
     "manageHint": "Update your card, view invoices or cancel anytime.",
-    "upgradeHint": "Upgrade for 100 pages a day and larger documents.",
+    "upgradeHint": "Upgrade for 50 pages a day and larger documents.",
     "redirecting": "Redirecting…",
     "success": {
       "title": "You're on Pro",
@@ -318,7 +300,7 @@
     "resend": "Send the verification email again",
     "sending": "Sending…",
     "sent": "Sent — check your inbox.",
-    "limited": "Already sent one recently. Try again in a few minutes.",
+    "limited": "A verification email was requested recently. Try again in a few minutes.",
     "error": "Couldn't send it. Please try again shortly."
   }
 }

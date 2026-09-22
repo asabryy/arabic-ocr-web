@@ -45,7 +45,14 @@ def test_convert_success_reserves_and_publishes(db_client, published, db):
         "filename": "a.pdf", "status": "processing", "pages": 4,
         "used_today": 4, "daily_limit": 10,
     }
-    assert published == [{"file_id": "a.pdf", "user_id": "1", "mode": "ocr", "pages": 4}]
+    assert len(published) == 1
+    task = published[0]
+    assert {k: task[k] for k in ("file_id", "user_id", "mode", "pages")} == {
+        "file_id": "a.pdf", "user_id": "1", "mode": "ocr", "pages": 4,
+    }
+    # The reservation day travels with the task so a refund lands on the row the
+    # pages were taken from, not on whatever day the failure happens to occur.
+    assert task["reserved_day"] == quota.today().isoformat()
     assert quota.used_today(db, 1) == 4
 
 
@@ -61,12 +68,15 @@ def test_convert_daily_limit_402_after_exhaustion(db_client):
 
 
 def test_convert_pro_plan_gets_pro_limits(db_client, current_user):
+    pro = quota.limits_for("pro")
     current_user.id = "2"  # pro
-    _upload(db_client, "big.pdf", 12)
+    # Comfortably inside both caps, and larger than the free plan would allow.
+    _upload(db_client, "big.pdf", pro.max_doc_pages - 1)
     assert db_client.post(f"{BASE}/convert?filename=big.pdf").status_code == 200
-    _upload(db_client, "huge.pdf", 101)
+    _upload(db_client, "huge.pdf", pro.max_doc_pages + 1)
     r = db_client.post(f"{BASE}/convert?filename=huge.pdf")
-    assert r.status_code == 402 and r.json()["detail"]["limit"] == 100
+    assert r.status_code == 402
+    assert r.json()["detail"]["limit"] == pro.max_doc_pages
 
 
 def test_convert_publish_failure_releases_reservation(db_client, monkeypatch, db):

@@ -7,9 +7,24 @@ from app.services import quota
 
 def test_limits_for_plan():
     assert quota.limits_for("free").daily_pages == 10
-    assert quota.limits_for("pro").max_doc_pages == 100
     assert quota.limits_for(None).plan == "free"
     assert quota.limits_for("unknown").plan == "free"
+    assert quota.limits_for("pro").daily_pages > quota.limits_for("free").daily_pages
+
+
+def test_pro_max_document_does_not_consume_the_whole_day():
+    """On a paid plan the per-document figure is sold as a repeatable allowance, so
+    it must sit below the daily cap. At parity one maximum-size document exhausts
+    the day and the advertised number is usable exactly once.
+
+    Free is deliberately at parity (10/10): "one 10-page document a day" is the
+    offer, not a promise of repeated use.
+    """
+    pro = quota.limits_for("pro")
+    assert pro.max_doc_pages < pro.daily_pages, (
+        f"per-document cap {pro.max_doc_pages} must be below the daily cap "
+        f"{pro.daily_pages}"
+    )
 
 
 def test_reserve_within_limit_accumulates(db):
@@ -61,3 +76,19 @@ def test_concurrent_reserves_never_exceed_limit(db):
     assert results.count(True) == 10
     assert results.count(False) == 10
     assert quota.used_today(db, 1) == 10
+
+
+def test_release_targets_the_reservation_day_not_today(db):
+    """A task reserved at 23:59 and failing at 00:00 must credit the day it was
+    reserved on. Crediting 'today' zeroed a fresh day's counter and handed out a
+    repeatable nightly cap bypass."""
+    from datetime import date, timedelta
+
+    yesterday = date.today() - timedelta(days=1)
+    quota.reserve(db, 1, 10, 10, "free", day=yesterday)
+    quota.reserve(db, 1, 10, 10, "free")  # a new day, a fresh allowance
+
+    quota.release(db, 1, 10, day=yesterday)
+
+    assert quota.used_today(db, 1) == 10, "today's counter must be untouched"
+    assert quota.used_today(db, 1, day=yesterday) == 0

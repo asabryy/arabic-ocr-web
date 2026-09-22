@@ -92,3 +92,34 @@ def test_network_error_counts_a_failure_and_raises(configured, post):
     with pytest.raises(requests.ConnectionError):
         email.send_password_reset_email("a@example.com", "tok")
     assert count("password_reset", "failed") == before + 1
+
+
+def test_non_json_success_body_still_counts_as_sent(configured, post):
+    """A 2xx with a surprising body must not turn a delivered message into a 503."""
+    post.return_value = Mock(
+        status_code=202,
+        json=Mock(side_effect=ValueError("no json")),
+        text="",
+    )
+    before = count("verification", "sent")
+    email.send_verification_email("a@example.com", "tok")  # must not raise
+    assert count("verification", "sent") == before + 1
+
+
+def test_links_are_not_logged_by_default(monkeypatch, post, caplog):
+    """A reset link is a live credential; logs outlive it and are widely readable."""
+    monkeypatch.setattr(settings, "RESEND_API_KEY", "")
+    monkeypatch.setattr(settings, "EMAIL_ECHO_LINKS", False)
+    with caplog.at_level("DEBUG"):
+        email.send_password_reset_email("a@example.com", "tok789")
+    assert "tok789" not in caplog.text
+
+
+def test_links_are_echoed_only_when_explicitly_enabled(monkeypatch, post, caplog):
+    """Opt-in escape hatch so local dev without credentials stays usable."""
+    monkeypatch.setattr(settings, "RESEND_API_KEY", "")
+    monkeypatch.setattr(settings, "EMAIL_ECHO_LINKS", True)
+    monkeypatch.setattr(settings, "FRONTEND_BASE_URL", "http://localhost:3000")
+    with caplog.at_level("INFO"):
+        email.send_password_reset_email("a@example.com", "tok789")
+    assert "http://localhost:3000/reset-password?token=tok789" in caplog.text

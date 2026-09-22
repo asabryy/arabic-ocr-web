@@ -5,6 +5,8 @@ import hashlib
 import hmac
 import json
 import time
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from app.core.config import settings
 
@@ -164,3 +166,55 @@ def test_webhook_404s_when_secret_unset(client, monkeypatch, make_user):
     monkeypatch.setattr(settings, "STRIPE_WEBHOOK_SECRET", "")
     body, headers = signed(sub_event())
     assert client.post(URL, content=body, headers=headers).status_code == 404
+
+
+def test_subscription_state_is_refetched_not_trusted(client, stripe_configured, db, make_user):
+    """Stripe can deliver events out of order, so the payload may be stale. The
+    handler must act on live state fetched from the API.
+
+    Here the event says `incomplete` (which would revoke) but the live subscription
+    is `active` — the user must end up on Pro.
+    """
+    user = make_user(customer_id="cus_1")
+
+    live = SimpleNamespace(
+        to_dict=lambda: {
+            "id": "sub_1",
+            "status": "active",
+            "customer": "cus_1",
+            "metadata": {},
+            "items": {"data": [{"price": {"product": "prod_pro"}}]},
+        }
+    )
+    fake = SimpleNamespace(v1=SimpleNamespace(subscriptions=SimpleNamespace(retrieve=lambda _id: live)))
+
+    import app.api.api_v1.endpoints.stripe_webhook as hook
+
+    with patch.object(hook, "get_stripe", lambda: fake):
+        body, headers = signed(sub_event(status="incomplete"))
+        r = client.post(URL, content=body, headers=headers)
+
+    assert r.status_code == 200
+    assert r.json()["plan"] == "pro", "live state must win over the stale payload"
+    db.refresh(user)
+    assert user.plan == "pro"
+
+
+def test_refetch_failure_falls_back_to_the_payload(client, stripe_configured, db, make_user):
+    """A Stripe API blip must not drop the event entirely."""
+    user = make_user(customer_id="cus_1")
+
+    def boom(_id):
+        raise RuntimeError("stripe unreachable")
+
+    fake = SimpleNamespace(v1=SimpleNamespace(subscriptions=SimpleNamespace(retrieve=boom)))
+
+    import app.api.api_v1.endpoints.stripe_webhook as hook
+
+    with patch.object(hook, "get_stripe", lambda: fake):
+        body, headers = signed(sub_event(status="active"))
+        r = client.post(URL, content=body, headers=headers)
+
+    assert r.status_code == 200
+    db.refresh(user)
+    assert user.plan == "pro"

@@ -69,6 +69,11 @@ GEMINI_COST_USD = Counter(
 
 # ── API: product / business counters ──────────────────────────────────────────
 
+REFUNDS = Counter(
+    "textara_refunds",
+    "Quota refunds after a failed conversion",
+    ["outcome"],  # ok|failed — a silent refund outage means users pay for failures
+)
 UPLOADS = Counter("textara_uploads", "PDF uploads accepted")
 CONVERSIONS_REQUESTED = Counter(
     "textara_conversions_requested",
@@ -119,3 +124,23 @@ def record_gemini_usage(usage, model: str, price_in_per_m: float, price_out_per_
     cost = prompt * price_in_per_m / 1e6 + (candidates + thoughts) * price_out_per_m / 1e6
     GEMINI_COST_USD.labels(model=model).inc(cost)
     return cost
+
+
+# A counter child does not exist until .labels() is first called, so a failure mode
+# that has never occurred has no series — an alert on it never fires and a panel
+# reads "No data" exactly as it would during a real outage. Create them at zero.
+for _mode in ("ocr", "trial"):
+    ENQUEUE_FAILURES.labels(mode=_mode)
+    OCR_REQUESTS.labels(status="success", mode=_mode)
+    OCR_REQUESTS.labels(status="error", mode=_mode)
+    OCR_PAGES.labels(mode=_mode)
+
+for _outcome in ("ok", "failed"):
+    REFUNDS.labels(outcome=_outcome)
+
+for _reason in ("rate_limited", "too_large", "invalid_pdf"):
+    TRIAL_REJECTIONS.labels(reason=_reason)
+
+for _plan in ("free", "pro"):
+    for _code in ("daily_pages_exceeded", "doc_pages_exceeded"):
+        QUOTA_REJECTIONS.labels(reason=_code, plan=_plan)

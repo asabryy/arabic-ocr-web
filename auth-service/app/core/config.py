@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     # Where support/feedback submissions are forwarded.
     SUPPORT_EMAIL: str = "support@textara.app"
     FEEDBACK_RATE_LIMIT: str = "3/hour"
+    # Local development only. Echoes verification/reset links to the log when no API
+    # key is configured. Never enable in production: those links are live credentials
+    # and logs outlive them.
+    EMAIL_ECHO_LINKS: bool = False
 
     # Frontend (for verification links)
     FRONTEND_BASE_URL: str = "https://textara.app"

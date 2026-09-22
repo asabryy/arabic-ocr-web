@@ -10,6 +10,7 @@ import requests
 from app import metrics
 from app.core.config import settings
 from app.dependencies.storage import get_storage
+from app.queue.task_queue import declare_task_queue
 
 logger = logging.getLogger("doc-worker")
 logging.basicConfig(level=logging.INFO)
@@ -21,6 +22,21 @@ OCR_HTTP_URL = settings.OCR_HTTP_URL
 
 # Retry config for RabbitMQ connection
 _RETRY_DELAYS = [5, 10, 20, 40, 60]  # seconds between attempts
+
+# Liveness marker. The metrics port is opened by a separate thread and stays open
+# even if the consumer dies, so a TCP probe on it reports healthy through a total
+# OCR outage. This file is touched from the consuming connection itself, so it
+# goes stale exactly when consumption stops.
+HEARTBEAT_PATH = "/tmp/worker-alive"
+_HEARTBEAT_INTERVAL_S = 30
+
+
+def touch_heartbeat() -> None:
+    try:
+        with open(HEARTBEAT_PATH, "w") as fh:
+            fh.write(str(time.time()))
+    except OSError as e:  # noqa: BLE001 — never let the probe marker kill the worker
+        logger.warning("Could not write heartbeat file: %s", e)
 
 
 def _call_gemini(pdf_bytes: bytes, max_pages: int | None = None, mode: str = "ocr") -> bytes:
@@ -46,17 +62,31 @@ def _call_http(pdf_bytes: bytes, max_pages: int | None = None) -> bytes:
     return resp.content
 
 
-def _refund_pages(user_id: str, pages: int | None) -> None:
-    """Best-effort: give a failed conversion's reserved pages back to the user's daily quota."""
+def _refund_pages(user_id: str, pages: int | None, reserved_day: str | None = None) -> None:
+    """Give a failed conversion's reserved pages back to the user's daily quota.
+
+    The refund must target the day the pages were *reserved* on, not the day the
+    refund happens. A task submitted at 23:59 and failing at 00:00 used to credit
+    the new day's counter, zeroing a fresh allowance and handing out free pages —
+    repeatable nightly. When the row for that day is gone the UPDATE matches
+    nothing and the refund is silently lost, so the outcome is counted either way.
+    """
     if not pages or user_id.startswith("trial/") or not settings.DATABASE_URL:
         return
     try:
+        from datetime import date
+
         from app.db.session import get_engine
         from app.services import quota
 
-        quota.release(get_engine(), int(user_id), pages)
-        logger.info("Refunded %d pages to user %s", pages, user_id)
+        day = date.fromisoformat(reserved_day) if reserved_day else None
+        quota.release(get_engine(), int(user_id), pages, day=day)
+        metrics.REFUNDS.labels(outcome="ok").inc()
+        logger.info("Refunded %d pages to user %s for %s", pages, user_id, day or "today")
     except Exception as e:  # noqa: BLE001
+        # Counted, not just logged: a silent refund outage is how users get charged
+        # for failures nobody hears about.
+        metrics.REFUNDS.labels(outcome="failed").inc()
         logger.error("Failed to refund %s pages to user %s: %s", pages, user_id, e)
 
 
@@ -126,7 +156,7 @@ def process_task(task: dict, redelivered: bool = False) -> None:
         storage.set_status(user_id, file_id, "failed")
         metrics.OCR_REQUESTS.labels(status="error", mode=mode).inc()
         metrics.OCR_REQUEST_DURATION.labels(mode=mode).observe(time.perf_counter() - t0)
-        _refund_pages(user_id, pages)
+        _refund_pages(user_id, pages, task.get("reserved_day"))
 
 
 def _connect() -> pika.BlockingConnection:
@@ -182,11 +212,30 @@ def consume() -> None:
         connection = _connect()
         try:
             channel = connection.channel()
-            channel.queue_declare(queue=settings.rabbitmq_queue, durable=True)
+            try:
+                declare_task_queue(channel, settings.rabbitmq_queue)
+            except Exception as e:  # noqa: BLE001
+                logger.warning(
+                    "Could not declare %s with delivery limits (%s) — falling back to "
+                    "the existing queue. A poison message will still loop until the "
+                    "queue is migrated.",
+                    settings.rabbitmq_queue, e,
+                )
+                channel = connection.channel()
+                channel.basic_qos(prefetch_count=1)
+                channel.queue_declare(queue=settings.rabbitmq_queue, durable=True)
             channel.basic_qos(prefetch_count=1)
             logger.info("Waiting for messages in '%s'. CTRL+C to exit.", settings.rabbitmq_queue)
 
             channel.basic_consume(queue=settings.rabbitmq_queue, on_message_callback=_make_callback(connection))
+
+            # Re-arms itself on the connection's I/O loop; stops being refreshed the
+            # moment start_consuming() returns or the connection dies.
+            def _beat():
+                touch_heartbeat()
+                connection.call_later(_HEARTBEAT_INTERVAL_S, _beat)
+
+            _beat()
 
             try:
                 channel.start_consuming()

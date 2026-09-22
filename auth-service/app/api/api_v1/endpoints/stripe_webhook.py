@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from stripe import SignatureVerificationError, Webhook
 
+from app import metrics
 from app.core.config import settings
 from app.core.stripe_client import get_stripe
 from app.crud.crud_billing import get_user_by_stripe_customer_id
@@ -45,7 +46,16 @@ def _subscription_from(event_type: str, obj: dict) -> dict | None:
     confirms the session actually resulted in a live subscription.
     """
     if event_type.startswith("customer.subscription."):
-        return obj
+        sub_id = obj.get("id")
+        if not sub_id:
+            return obj
+        try:
+            # Events can arrive out of order and in parallel; the payload may already
+            # be stale. Authoritative state comes from the API, not the envelope.
+            return _as_dict(get_stripe().v1.subscriptions.retrieve(sub_id))
+        except Exception as ex:  # noqa: BLE001 — fall back rather than drop the event
+            logger.warning("Could not re-fetch subscription %s (%s); using payload", sub_id, ex)
+            return obj
 
     # checkout.session.completed
     if obj.get("mode") != "subscription" or obj.get("payment_status") == "unpaid":
@@ -68,6 +78,7 @@ async def stripe_webhook(
     db: Session = Depends(get_db),
 ):
     if not settings.STRIPE_WEBHOOK_SECRET:
+        metrics.STRIPE_EVENTS.labels(type="unknown", outcome="no_secret").inc()
         logger.error("Webhook received but STRIPE_WEBHOOK_SECRET is not set")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
@@ -77,6 +88,9 @@ async def stripe_webhook(
             payload, stripe_signature, settings.STRIPE_WEBHOOK_SECRET
         )
     except (ValueError, SignatureVerificationError) as ex:
+        # A rotated secret that reaches Stripe but not the cluster lands here on every
+        # event, silently granting nobody Pro. Counted so it can page.
+        metrics.STRIPE_EVENTS.labels(type="unknown", outcome="invalid_signature").inc()
         logger.warning("Rejected webhook: %s", ex)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid signature")
 
@@ -94,15 +108,18 @@ async def stripe_webhook(
         return {"status": "noted"}
 
     if event_type not in billing.HANDLED_EVENTS:
+        metrics.STRIPE_EVENTS.labels(type=event_type, outcome="ignored").inc()
         return {"status": "ignored"}
 
     if not billing.claim_event(db, event_id, event_type):
+        metrics.STRIPE_EVENTS.labels(type=event_type, outcome="duplicate").inc()
         logger.info("Duplicate event %s (%s) — already applied", event_id, event_type)
         return {"status": "duplicate"}
 
     obj = _as_dict(event["data"]["object"])
     subscription = _subscription_from(event_type, obj)
     if subscription is None:
+        metrics.STRIPE_EVENTS.labels(type=event_type, outcome="ignored").inc()
         db.commit()  # keep the claim: nothing to do for this one
         return {"status": "ignored"}
 
@@ -122,6 +139,10 @@ async def stripe_webhook(
                 user.stripe_customer_id = customer_id
 
     if user is None:
+        # A payment succeeded and mapped to nobody. Returning 200 is right (Stripe
+        # must stop retrying) but it is indistinguishable from success in HTTP
+        # metrics, so it gets its own counter and its own alert.
+        metrics.STRIPE_EVENTS.labels(type=event_type, outcome="no_user").inc()
         logger.error(
             "No user for customer=%s on %s — acknowledging so Stripe stops retrying",
             customer_id, event_type,
@@ -130,5 +151,6 @@ async def stripe_webhook(
         return {"status": "no_user"}
 
     plan = billing.apply_subscription(db, user, subscription)
+    metrics.STRIPE_EVENTS.labels(type=event_type, outcome="applied").inc()
     db.commit()  # event claim + plan change land together
     return {"status": "ok", "plan": plan}

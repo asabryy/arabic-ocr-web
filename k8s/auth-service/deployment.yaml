@@ -35,12 +35,16 @@ spec:
               port: 8000
             initialDelaySeconds: 10
             periodSeconds: 10
+          # Readiness checks the database; liveness deliberately does not. A Supabase
+          # blip should take the pod out of the endpoint list, not kill it and have
+          # the replacement add connection churn to a struggling pooler.
           livenessProbe:
             httpGet:
-              path: /api/auth/v1/health
+              path: /docs
               port: 8000
-            initialDelaySeconds: 30
+            initialDelaySeconds: 20
             periodSeconds: 30
+            failureThreshold: 6
           resources:
             requests:
               memory: "128Mi"

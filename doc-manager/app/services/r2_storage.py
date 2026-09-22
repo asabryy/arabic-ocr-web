@@ -1,4 +1,5 @@
 import json
+import logging
 import time
 from typing import IO
 
@@ -9,7 +10,9 @@ from fastapi import HTTPException
 
 from app.core.config import settings
 from app.schemas.document import DocumentInfo
-from app.services.storage import FileStorage
+from app.services.storage import FileStorage, safe_name, safe_user_id
+
+logger = logging.getLogger("doc-manager.r2")
 
 _SIDECAR_SUFFIXES = (".settings.json", ".status", ".meta.json", ".docx")
 
@@ -26,7 +29,10 @@ class R2FileStorage(FileStorage):
         self.bucket = settings.R2_BUCKET_NAME
 
     def _key(self, user_id: str, filename: str) -> str:
-        return f"{user_id}/{filename}"
+        # Literal S3 keys happen to defeat traversal on reads (the signature breaks
+        # when the URL is normalised), but that is an accident of the transport and
+        # does not protect writes. Sanitize explicitly.
+        return f"{safe_user_id(user_id)}/{safe_name(filename)}"
 
     def _status_key(self, user_id: str, filename: str) -> str:
         return f"{user_id}/{filename}.status"
@@ -60,11 +66,21 @@ class R2FileStorage(FileStorage):
         self.s3.delete_object(Bucket=self.bucket, Key=self._key(user_id, filename))
         # Remove every sidecar (.status, .meta.json, the .docx output, ...) — previously
         # only .status was deleted, leaking the rest in the bucket.
-        for suffix in _SIDECAR_SUFFIXES:
+        base = self._key(user_id, filename)
+        stem = base.rsplit(".", 1)[0]
+        # The worker saves output as "<stem>.docx" (report.docx), not
+        # "<filename>.docx" (report.pdf.docx), so the suffix list never matched it
+        # and the transcription outlived the deletion it was meant to follow.
+        for key in [f"{base}{sfx}" for sfx in _SIDECAR_SUFFIXES] + [
+            f"{stem}.docx",
+            f"{stem}.docx.status",
+        ]:
             try:
-                self.s3.delete_object(Bucket=self.bucket, Key=f"{user_id}/{filename}{suffix}")
-            except ClientError:
-                pass
+                self.s3.delete_object(Bucket=self.bucket, Key=key)
+            except ClientError as e:  # noqa: PERF203
+                # Genuinely absent sidecars are normal; anything else must not be silent.
+                if e.response.get("Error", {}).get("Code") not in ("NoSuchKey", "404"):
+                    logger.warning("Could not delete %s: %s", key, e)
 
     def get_path(self, user_id: str, filename: str) -> str:
         key = self._key(user_id, filename)

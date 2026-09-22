@@ -1,4 +1,4 @@
-"""Support / feedback intake — forwards to the team inbox over SendGrid.
+"""Support / feedback intake — forwards to the team inbox.
 
 Deliberately accepts anonymous submissions: the people most likely to report that
 something is broken are the ones who could not sign up or could not convert.

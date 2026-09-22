@@ -40,6 +40,7 @@ import urllib.request
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DASHBOARD_DIR = os.path.join(ROOT, "monitoring", "grafana", "dashboards")
 DATASOURCE_FILE = os.path.join(ROOT, "monitoring", "grafana", "datasources", "textara-db.json")
+ALERT_FILE = os.path.join(ROOT, "monitoring", "grafana", "alerting", "textara-alerts.json")
 DATASOURCE_UID = "textara-db"
 
 
@@ -69,6 +70,18 @@ def validate() -> list[dict]:
     if ds.get("uid") != DATASOURCE_UID:
         die(f"{DATASOURCE_FILE}: uid must be {DATASOURCE_UID}")
     print(f"  ok  datasource {ds['name']}")
+
+    if os.path.exists(ALERT_FILE):
+        with open(ALERT_FILE) as fh:
+            group = json.load(fh)
+        uids = [r["uid"] for r in group.get("rules", [])]
+        if len(uids) != len(set(uids)):
+            die("duplicate alert rule uids")
+        for r in group.get("rules", []):
+            for field in ("uid", "title", "condition", "data"):
+                if not r.get(field):
+                    die(f"alert rule missing {field}: {r.get('uid') or r.get('title')}")
+        print(f"  ok  alerting  {len(uids)} rules")
     return dashboards
 
 
@@ -175,10 +188,86 @@ def upsert_dashboards(g: Grafana, dashboards: list[dict], folder_uid: str) -> No
         print(f"dashboard {d['uid']}: v{resp.get('version')}  {g.url}{resp.get('url')}")
 
 
+# ── Alerting ──────────────────────────────────────────────────────────────────
+
+def upsert_contact_point(g: Grafana, folder_uid: str) -> str | None:
+    """Create the notification route from env, and return its name.
+
+    Deliberately not email. The first alert in this set fires when email is broken,
+    and an email about broken email cannot arrive — which is precisely how the
+    September 2026 outage ran for weeks.
+    """
+    url = os.environ.get("ALERT_WEBHOOK_URL")
+    if not url:
+        print("alerting: ALERT_WEBHOOK_URL not set — rules will be provisioned "
+              "without a delivery route (they will fire and go nowhere)")
+        return None
+
+    name = os.environ.get("ALERT_CONTACT_POINT", "textara-page")
+    body = {
+        "name": name,
+        "type": "webhook",
+        "settings": {"url": url, "httpMethod": "POST"},
+        "disableResolveMessage": False,
+    }
+    status, existing = g.req("GET", "/api/v1/provisioning/contact-points")
+    match = next((c for c in (existing or []) if c.get("name") == name), None) if status == 200 else None
+    if match:
+        body["uid"] = match["uid"]
+        status, resp = g.req("PUT", f"/api/v1/provisioning/contact-points/{match['uid']}", body)
+        action = "updated"
+    else:
+        status, resp = g.req("POST", "/api/v1/provisioning/contact-points", body)
+        action = "created"
+    if status not in (200, 201, 202):
+        die(f"contact point {action} failed: {status} {resp}")
+    print(f"contact point {name} {action}")
+
+    # Point the default notification policy at it, or nothing routes.
+    status, policy = g.req("GET", "/api/v1/provisioning/policies")
+    if status == 200 and isinstance(policy, dict):
+        policy["receiver"] = name
+        status, resp = g.req("PUT", "/api/v1/provisioning/policies", policy)
+        if status not in (200, 202):
+            die(f"notification policy update failed: {status} {resp}")
+        print(f"notification policy routed to {name}")
+    return name
+
+
+def upsert_alert_rules(g: Grafana, folder_uid: str) -> None:
+    if not os.path.exists(ALERT_FILE):
+        print("alerting: no rule file, skipping")
+        return
+    with open(ALERT_FILE) as fh:
+        group = json.load(fh)
+
+    for r in group["rules"]:
+        r["folderUID"] = folder_uid
+        r["ruleGroup"] = group["name"]
+        r["orgID"] = 1
+        r.setdefault("isPaused", False)
+
+        status, _ = g.req("GET", f"/api/v1/provisioning/alert-rules/{r['uid']}")
+        if status == 200:
+            status, resp = g.req("PUT", f"/api/v1/provisioning/alert-rules/{r['uid']}", r)
+            action = "updated"
+        elif status == 404:
+            status, resp = g.req("POST", "/api/v1/provisioning/alert-rules", r)
+            action = "created"
+        else:
+            die(f"alert rule lookup failed for {r['uid']}: {status}")
+        if status not in (200, 201, 202):
+            die(f"alert rule {r['uid']} {action} failed: {status} {resp}")
+        print(f"alert rule {r['uid']}: {action}")
+
+    print(f"alerting: {len(group['rules'])} rules provisioned")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--validate", action="store_true")
     ap.add_argument("--dashboards-only", action="store_true")
+    ap.add_argument("--alerts-only", action="store_true")
     args = ap.parse_args()
 
     print("validating files...")
@@ -201,6 +290,9 @@ def main() -> None:
     if not args.dashboards_only:
         upsert_datasource(g)
     upsert_dashboards(g, dashboards, folder_uid)
+
+    upsert_contact_point(g, folder_uid)
+    upsert_alert_rules(g, folder_uid)
     print("done")
 
 

@@ -6,25 +6,25 @@ from fastapi import HTTPException
 
 from app.core.config import settings
 from app.schemas.document import DocumentInfo
-from app.services.storage import FileStorage
+from app.services.storage import FileStorage, safe_name, safe_user_id
 
 _SIDECAR_SUFFIXES = (".settings.json", ".status", ".meta.json", ".docx")
 
 
 class LocalFileStorage(FileStorage):
     def _user_path(self, user_id: str) -> str:
-        path = os.path.join(settings.UPLOAD_DIR, user_id)
+        path = os.path.join(settings.UPLOAD_DIR, safe_user_id(user_id))
         os.makedirs(path, exist_ok=True)
         return path
 
     def _status_path(self, user_id: str, filename: str) -> str:
-        return os.path.join(self._user_path(user_id), f"{filename}.status")
+        return os.path.join(self._user_path(user_id), f"{safe_name(filename)}.status")
 
     def _meta_path(self, user_id: str, filename: str) -> str:
-        return os.path.join(self._user_path(user_id), f"{filename}.meta.json")
+        return os.path.join(self._user_path(user_id), f"{safe_name(filename)}.meta.json")
 
     def save_file(self, user_id: str, filename: str, file_obj: IO) -> str:
-        path = os.path.join(self._user_path(user_id), filename)
+        path = os.path.join(self._user_path(user_id), safe_name(filename))
         with open(path, "wb") as f:
             f.write(file_obj.read())
         self.set_status(user_id, filename, "pending")
@@ -49,23 +49,29 @@ class LocalFileStorage(FileStorage):
         return files
 
     def delete_file(self, user_id: str, filename: str) -> None:
-        path = os.path.join(self._user_path(user_id), filename)
+        path = os.path.join(self._user_path(user_id), safe_name(filename))
         if not os.path.exists(path):
             raise HTTPException(status_code=404, detail="File not found")
         os.remove(path)
-        for suffix in _SIDECAR_SUFFIXES:
-            sidecar = f"{path}{suffix}"
+        stem = os.path.splitext(path)[0]
+        # The worker saves output as "<stem>.docx" (report.docx), not
+        # "<filename>.docx" (report.pdf.docx), so the suffix list never matched it
+        # and the transcription outlived the deletion it was meant to follow.
+        for sidecar in [f"{path}{sfx}" for sfx in _SIDECAR_SUFFIXES] + [
+            f"{stem}.docx",
+            f"{stem}.docx.status",
+        ]:
             if os.path.exists(sidecar):
                 os.remove(sidecar)
 
     def get_path(self, user_id: str, filename: str) -> str:
-        path = os.path.join(self._user_path(user_id), filename)
+        path = os.path.join(self._user_path(user_id), safe_name(filename))
         if not os.path.exists(path):
             raise HTTPException(status_code=404, detail="File not found")
         return path
 
     def file_exists(self, user_id: str, filename: str) -> bool:
-        path = os.path.join(self._user_path(user_id), filename)
+        path = os.path.join(self._user_path(user_id), safe_name(filename))
         return os.path.exists(path)
 
     def set_status(self, user_id: str, filename: str, status: str) -> None:

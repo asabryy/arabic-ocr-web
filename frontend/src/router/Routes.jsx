@@ -25,7 +25,9 @@ import BillingSuccess from "../pages/BillingSuccess";
 import ComingSoon from "../pages/ComingSoon";
 import NotFound from "../pages/NotFound";
 
-const AUTH_ONLY_PATHS = ["/login", "/signup", "/forgot-password", "/reset-password"];
+// /verify-email is reached from an email link, usually signed out — it must not
+// render inside the dashboard shell.
+const AUTH_ONLY_PATHS = ["/login", "/signup", "/forgot-password", "/reset-password", "/verify-email"];
 const PUBLIC_PATHS = ["/pricing", "/coming-soon"];
 
 function ProtectedRoute({ children }) {

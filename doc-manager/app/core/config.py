@@ -55,14 +55,20 @@ class Settings(BaseSettings):
     # Plan limits (pages). Enforced at /convert; surfaced by /usage.
     PLAN_FREE_DAILY_PAGES: int = 10
     PLAN_FREE_MAX_DOC_PAGES: int = 10
-    # Bounds worst-case Gemini spend for a Pro seat: 100 pages/day at ~$0.0036/page
-    # is ~$11/mo against a $9.99 subscription. 300 allowed ~$32 — more than the price.
-    PLAN_PRO_DAILY_PAGES: int = 100
-    PLAN_PRO_MAX_DOC_PAGES: int = 100
+    # Worst-case Gemini spend for one Pro seat must stay below what the seat pays.
+    # At ~$0.0036/page, break-even on $9.99 is ~2,775 pages/month (~2,611 after
+    # Stripe fees). 300/day allowed 9,000 and 100/day allowed 3,000 — both above it.
+    # 50/day caps a fully-used seat at ~1,500 pages (~$5.40), leaving ~45% margin.
+    PLAN_PRO_DAILY_PAGES: int = 50
+    # Must stay below the daily cap: at parity, one max-size document consumes
+    # the whole day and the advertised per-document allowance is usable once.
+    PLAN_PRO_MAX_DOC_PAGES: int = 40
 
     # Anonymous trial (landing page): first N pages only, rate-limited per client IP.
     TRIAL_MAX_PAGES: int = 1
     TRIAL_RATE_LIMIT: str = "3/day"
+    # Authenticated uploads were bounded only by the ingress proxy-body-size.
+    MAX_UPLOAD_MB: int = 50
     TRIAL_MAX_UPLOAD_MB: int = 10
 
     # Header carrying the real client IP behind ingress-nginx (first value is used).

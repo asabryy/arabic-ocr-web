@@ -78,14 +78,31 @@ def apply_subscription(db: Session, user: User, subscription: dict) -> str:
     """Write a subscription's state onto the user row. Returns the resulting plan.
 
     Does not commit — the webhook handler commits once, together with the event claim.
+
+    Two ordering hazards this guards against, both of which strand a paying customer:
+
+    1. Stripe does not guarantee delivery order and parallelises when the endpoint is
+       slow. `created(incomplete)` arriving after `updated(active)` would otherwise
+       downgrade someone who just paid, with no self-heal until the next event.
+       The caller re-fetches live state, so the payload's age stops mattering.
+    2. A customer who re-subscribes after a failed card has two subscriptions. The
+       old one's eventual `deleted` must not revoke access granted by the new one.
     """
+    sub_id = subscription.get("id")
     plan = plan_for_subscription(subscription)
+
+    if plan == "free" and user.stripe_subscription_id and sub_id != user.stripe_subscription_id:
+        logger.info(
+            "Ignoring revoking event for subscription=%s; user_id=%s is entitled by %s",
+            sub_id, user.id, user.stripe_subscription_id,
+        )
+        return user.plan
+
     status = subscription.get("status")
     previous = user.plan
 
     user.plan = plan
     user.subscription_status = status
-    sub_id = subscription.get("id")
     if plan == "free" and user.stripe_subscription_id == sub_id:
         # Subscription ended; drop the pointer but keep the customer id so a
         # re-subscribe reuses their billing history rather than making a second customer.

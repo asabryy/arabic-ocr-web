@@ -19,6 +19,198 @@
   "version": 1,
   "panels": [
     {
+      "title": "Is it working right now?",
+      "type": "row",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 49
+    },
+    {
+      "title": "API 5xx by service",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Server errors. The most general 'something is broken' signal, and until now it appeared on no panel \u2014 two failed Stripe checkouts sat here unseen.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (app) (increase(http_requests_total{namespace=\"textara\",status=\"5xx\"}[5m]))",
+          "legendFormat": "{{app}}",
+          "range": true,
+          "interval": "5m"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 2,
+            "fillOpacity": 35,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "min": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "red"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 1
+      },
+      "id": 46
+    },
+    {
+      "title": "Service up",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Scrape health per pod. Scoped to kubernetes-pods: a stale static target makes a bare up==0 permanently true.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "up{job=\"kubernetes-pods\",namespace=\"textara\"}",
+          "legendFormat": "{{app}}",
+          "range": true,
+          "interval": "5m"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 2,
+            "fillOpacity": 35,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "min": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 1
+      },
+      "id": 47
+    },
+    {
+      "title": "Email delivery outcomes",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Now that label combinations are pre-instantiated, zero reads as zero rather than as 'No data' \u2014 which is what this panel showed through a real outage.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (outcome) (increase(textara_emails_total[1h]))",
+          "legendFormat": "{{outcome}}",
+          "range": true,
+          "interval": "5m"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 2,
+            "fillOpacity": 35,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 1
+      },
+      "id": 48
+    },
+    {
       "id": 1,
       "type": "row",
       "title": "Users",
@@ -27,7 +219,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 0
+        "y": 8
       }
     },
     {
@@ -76,7 +268,7 @@
         "h": 4,
         "w": 4,
         "x": 0,
-        "y": 1
+        "y": 9
       },
       "id": 2
     },
@@ -126,7 +318,7 @@
         "h": 4,
         "w": 4,
         "x": 4,
-        "y": 1
+        "y": 9
       },
       "id": 3
     },
@@ -176,7 +368,7 @@
         "h": 4,
         "w": 4,
         "x": 8,
-        "y": 1
+        "y": 9
       },
       "id": 4
     },
@@ -227,7 +419,7 @@
         "h": 4,
         "w": 4,
         "x": 12,
-        "y": 1
+        "y": 9
       },
       "id": 5
     },
@@ -278,7 +470,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 1
+        "y": 9
       },
       "id": 6
     },
@@ -330,7 +522,7 @@
         "h": 8,
         "w": 16,
         "x": 0,
-        "y": 9
+        "y": 17
       },
       "id": 7
     },
@@ -385,9 +577,127 @@
         "h": 7,
         "w": 8,
         "x": 16,
-        "y": 9
+        "y": 17
       },
       "id": 8
+    },
+    {
+      "title": "Email delivery failures",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Transactional email that the provider rejected or that never left the pod. Any sustained non-zero value means verification and password-reset mail is not reaching users \u2014 the SendGrid trial expiring in Sep 2026 went unnoticed for weeks because nothing counted this.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (kind) (increase(textara_emails_total{outcome=\"failed\"}[1h]))",
+          "legendFormat": "{{kind}}",
+          "range": true,
+          "interval": "1h"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 2,
+            "fillOpacity": 40,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "red"
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "id": 44
+    },
+    {
+      "title": "Email sent by kind",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Successfully accepted by the email provider, by message kind.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (kind) (increase(textara_emails_total{outcome=\"sent\"}[1h]))",
+          "legendFormat": "{{kind}}",
+          "range": true,
+          "interval": "1h"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 2,
+            "fillOpacity": 25,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
+      "id": 45
     },
     {
       "title": "Logins by method / outcome",
@@ -440,7 +750,7 @@
         "h": 7,
         "w": 8,
         "x": 0,
-        "y": 17
+        "y": 32
       },
       "id": 9
     },
@@ -489,7 +799,7 @@
         "h": 7,
         "w": 8,
         "x": 8,
-        "y": 17
+        "y": 32
       },
       "id": 10
     },
@@ -502,11 +812,11 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 24
+        "y": 39
       }
     },
     {
-      "title": "Active users / day (converted ≥1 page)",
+      "title": "Active users / day (converted \u22651 page)",
       "type": "timeseries",
       "datasource": {
         "type": "grafana-postgresql-datasource",
@@ -552,7 +862,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 25
+        "y": 40
       },
       "id": 12
     },
@@ -607,7 +917,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 25
+        "y": 40
       },
       "id": 13
     },
@@ -657,7 +967,7 @@
         "h": 4,
         "w": 4,
         "x": 16,
-        "y": 25
+        "y": 40
       },
       "id": 14
     },
@@ -719,7 +1029,7 @@
         "h": 4,
         "w": 4,
         "x": 20,
-        "y": 25
+        "y": 40
       },
       "id": 15
     },
@@ -768,7 +1078,7 @@
         "h": 4,
         "w": 4,
         "x": 0,
-        "y": 33
+        "y": 48
       },
       "id": 16
     },
@@ -817,7 +1127,7 @@
         "h": 4,
         "w": 4,
         "x": 4,
-        "y": 33
+        "y": 48
       },
       "id": 17
     },
@@ -836,7 +1146,7 @@
             "uid": "prometheus"
           },
           "expr": "sum by (mode, plan) (increase(textara_conversions_requested_total[1h]))",
-          "legendFormat": "{{mode}} · {{plan}}",
+          "legendFormat": "{{mode}} \u00b7 {{plan}}",
           "range": true,
           "interval": "1h"
         }
@@ -872,7 +1182,7 @@
         "h": 7,
         "w": 8,
         "x": 8,
-        "y": 33
+        "y": 48
       },
       "id": 18
     },
@@ -927,7 +1237,7 @@
         "h": 7,
         "w": 8,
         "x": 16,
-        "y": 33
+        "y": 48
       },
       "id": 19
     },
@@ -946,7 +1256,7 @@
             "uid": "prometheus"
           },
           "expr": "sum by (reason, plan) (increase(textara_quota_rejections_total[1h]))",
-          "legendFormat": "{{reason}} · {{plan}}",
+          "legendFormat": "{{reason}} \u00b7 {{plan}}",
           "range": true,
           "interval": "1h"
         }
@@ -978,12 +1288,12 @@
           "sort": "desc"
         }
       },
-      "description": "Users blocked by their plan limits — demand signal for the Pro tier.",
+      "description": "Users blocked by their plan limits \u2014 demand signal for the Pro tier.",
       "gridPos": {
         "h": 7,
         "w": 8,
         "x": 0,
-        "y": 40
+        "y": 55
       },
       "id": 20
     },
@@ -1056,12 +1366,12 @@
           "values": false
         }
       },
-      "description": "Anonymous landing-page trials: started → OCR succeeded → DOCX downloaded; plus visitors who hit the 3/day limit.",
+      "description": "Anonymous landing-page trials: started \u2192 OCR succeeded \u2192 DOCX downloaded; plus visitors who hit the 3/day limit.",
       "gridPos": {
         "h": 7,
         "w": 12,
         "x": 8,
-        "y": 40
+        "y": 55
       },
       "id": 21
     },
@@ -1116,7 +1426,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 47
+        "y": 62
       },
       "id": 22
     },
@@ -1129,7 +1439,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 54
+        "y": 69
       }
     },
     {
@@ -1195,7 +1505,7 @@
         "h": 4,
         "w": 4,
         "x": 0,
-        "y": 55
+        "y": 70
       },
       "id": 24
     },
@@ -1244,7 +1554,7 @@
         "h": 4,
         "w": 4,
         "x": 4,
-        "y": 55
+        "y": 70
       },
       "id": 25
     },
@@ -1296,7 +1606,7 @@
         "h": 4,
         "w": 4,
         "x": 8,
-        "y": 55
+        "y": 70
       },
       "id": 26
     },
@@ -1362,7 +1672,7 @@
         "h": 4,
         "w": 4,
         "x": 12,
-        "y": 55
+        "y": 70
       },
       "id": 27
     },
@@ -1427,7 +1737,7 @@
         "h": 4,
         "w": 4,
         "x": 16,
-        "y": 55
+        "y": 70
       },
       "id": 28
     },
@@ -1488,7 +1798,7 @@
         "h": 4,
         "w": 4,
         "x": 20,
-        "y": 55
+        "y": 70
       },
       "id": 29
     },
@@ -1507,7 +1817,7 @@
             "uid": "prometheus"
           },
           "expr": "sum by (status, mode) (increase(ocr_requests_total[1h]))",
-          "legendFormat": "{{status}} · {{mode}}",
+          "legendFormat": "{{status}} \u00b7 {{mode}}",
           "range": true,
           "interval": "1h"
         }
@@ -1543,7 +1853,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 59
+        "y": 74
       },
       "id": 30
     },
@@ -1598,7 +1908,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 59
+        "y": 74
       },
       "id": 31
     },
@@ -1660,7 +1970,7 @@
         "h": 7,
         "w": 8,
         "x": 0,
-        "y": 66
+        "y": 81
       },
       "id": 32
     },
@@ -1711,7 +2021,7 @@
         "h": 7,
         "w": 8,
         "x": 8,
-        "y": 66
+        "y": 81
       },
       "id": 33
     },
@@ -1773,7 +2083,7 @@
         "h": 7,
         "w": 8,
         "x": 16,
-        "y": 66
+        "y": 81
       },
       "id": 34
     },
@@ -1828,7 +2138,7 @@
         "h": 7,
         "w": 8,
         "x": 0,
-        "y": 73
+        "y": 88
       },
       "id": 35
     },
@@ -1883,7 +2193,7 @@
         "h": 7,
         "w": 8,
         "x": 8,
-        "y": 73
+        "y": 88
       },
       "id": 36
     },
@@ -1935,7 +2245,7 @@
         "h": 7,
         "w": 8,
         "x": 16,
-        "y": 73
+        "y": 88
       },
       "id": 37
     },
@@ -1991,7 +2301,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 80
+        "y": 95
       },
       "id": 38
     },
@@ -2041,7 +2351,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 80
+        "y": 95
       },
       "id": 39
     },
@@ -2054,7 +2364,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 86
+        "y": 101
       }
     },
     {
@@ -2102,7 +2412,7 @@
         "h": 7,
         "w": 8,
         "x": 0,
-        "y": 87
+        "y": 102
       },
       "id": 41
     },
@@ -2140,7 +2450,7 @@
         "h": 7,
         "w": 16,
         "x": 8,
-        "y": 87
+        "y": 102
       },
       "id": 42
     },
@@ -2177,7 +2487,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 94
+        "y": 109
       },
       "id": 43
     }

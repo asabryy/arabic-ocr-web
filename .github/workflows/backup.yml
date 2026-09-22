@@ -1,0 +1,68 @@
+name: Database backup
+
+# The only copy of user accounts, plan state and Stripe mappings lives in Supabase,
+# whose free tier has no automated backups. This is the restore path.
+on:
+  schedule:
+    - cron: "17 3 * * *"   # 03:17 UTC daily, off the hour to avoid the stampede
+  workflow_dispatch:
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump Postgres and upload to R2
+        env:
+          DATABASE_URL: ${{ secrets.AUTH_DATABASE_URL }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+          # The runner's client must not be older than the server.
+          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+
+          STAMP=$(date -u +%Y-%m-%dT%H-%M-%SZ)
+          FILE="textara-${STAMP}.sql.gz"
+
+          # --no-owner/--no-acl so the dump restores into any database, not just this one.
+          pg_dump --no-owner --no-acl --clean --if-exists "$DATABASE_URL" | gzip -9 > "$FILE"
+
+          # A dump that is too small is a failed dump that exited 0.
+          SIZE=$(stat -c%s "$FILE")
+          echo "dump size: ${SIZE} bytes"
+          if [ "$SIZE" -lt 10000 ]; then
+            echo "::error::Dump is only ${SIZE} bytes — refusing to upload a likely-empty backup."
+            exit 1
+          fi
+          # Prove it is a readable archive before trusting it.
+          gzip -t "$FILE"
+          gunzip -c "$FILE" | grep -q "CREATE TABLE public.users" \
+            || { echo "::error::Dump does not contain the users table."; exit 1; }
+
+          aws s3 cp "$FILE" "s3://${R2_BUCKET_NAME}/backups/${FILE}" \
+            --endpoint-url "$R2_ENDPOINT_URL"
+          echo "Uploaded backups/${FILE}"
+
+      - name: Prune backups older than 30 days
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+          CUTOFF=$(date -u -d '30 days ago' +%Y-%m-%d)
+          aws s3 ls "s3://${R2_BUCKET_NAME}/backups/" --endpoint-url "$R2_ENDPOINT_URL" \
+            | awk '{print $4}' | while read -r KEY; do
+              [ -z "$KEY" ] && continue
+              DAY=$(echo "$KEY" | sed -n 's/^textara-\([0-9-]\{10\}\)T.*/\1/p')
+              [ -z "$DAY" ] && continue
+              if [ "$DAY" \< "$CUTOFF" ]; then
+                aws s3 rm "s3://${R2_BUCKET_NAME}/backups/${KEY}" --endpoint-url "$R2_ENDPOINT_URL"
+              fi
+            done

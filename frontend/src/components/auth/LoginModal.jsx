@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import Modal from "../ui/Modal";
 import { useAuth } from "../../auth/AuthContext";
 import { loginUser, googleAuth } from "../../features/auth/authservice";
+import { errorText } from "../../api/errorText";
 
 const LoginModal = ({ isOpen, onClose }) => {
   const { t } = useTranslation();
@@ -23,7 +24,7 @@ const LoginModal = ({ isOpen, onClose }) => {
       onClose();
       navigate("/dashboard");
     } catch (err) {
-      toast.error(err?.response?.data?.detail || "Incorrect email or password.");
+      toast.error(errorText(err, t("auth.errors.loginFailed")));
     } finally {
       setLoading(false);
     }

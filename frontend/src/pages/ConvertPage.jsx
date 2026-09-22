@@ -204,11 +204,17 @@ function ConvertPage() {
 
   useEffect(() => {
     const handler = (e) => {
-      if (e.key === "u" && !e.ctrlKey && !e.metaKey && !e.altKey &&
-          document.activeElement.tagName !== "INPUT" &&
-          document.activeElement.tagName !== "TEXTAREA") {
-        document.getElementById("hidden-file-trigger")?.click();
-      }
+      if (e.key !== "u" || e.ctrlKey || e.metaKey || e.altKey) return;
+
+      // activeElement can be null while the document is being torn down.
+      const el = document.activeElement;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) return;
+
+      // ConvertPage stays mounted behind every modal, so without this the OS file
+      // picker opens on top of an open dialog.
+      if (document.querySelector('[role="dialog"]')) return;
+
+      document.getElementById("hidden-file-trigger")?.click();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
@@ -273,6 +279,31 @@ function ConvertPage() {
     catch { toast.error(t("convert.errors.previewFailed")); }
   };
 
+  // The worker names the output from the stem (rsplit on the last dot), so a
+  // case-sensitive /\.pdf$/ replace missed "report.PDF" — the app then requested
+  // the original upload and handed the user their scanned PDF as the deliverable.
+  const docxNameFor = (filename) => filename.replace(/\.[^.]+$/, "") + ".docx";
+
+  // `name` is taken as given — the preview pane downloads the original PDF, the
+  // file row downloads the converted .docx.
+  const safeDownload = async (name) => {
+    try {
+      await downloadDocument(name);
+    } catch {
+      toast.error(t("convert.errors.downloadFailed"));
+    }
+  };
+
+  const handleDownload = async (filename) => {
+    try {
+      await downloadDocument(docxNameFor(filename));
+    } catch {
+      // Previously an unhandled rejection: a failed download at the exact moment
+      // the product delivers value produced no feedback at all.
+      toast.error(t("convert.errors.downloadFailed"));
+    }
+  };
+
   const handleDelete = async (filename) => {
     try {
       await deleteDocument(filename);
@@ -325,7 +356,13 @@ function ConvertPage() {
     <div className="space-y-6 animate-fade-in">
       {/* Hidden trigger for keyboard shortcut */}
       <input id="hidden-file-trigger" type="file" accept="application/pdf" className="hidden"
-        onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])} />
+        onChange={(e) => {
+          const picked = e.target.files?.[0];
+          // Reset first: without it the input keeps its value, so choosing the same
+          // file again fires no change event and the upload silently does nothing.
+          e.target.value = "";
+          if (picked) handleUpload(picked);
+        }} />
 
       {/* Page header */}
       <div className="border-b border-zinc-200 dark:border-zinc-800 pb-5 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
@@ -505,7 +542,7 @@ function ConvertPage() {
                             </>
                           )}
                           {doc.status === "done" && (
-                            <button onClick={() => downloadDocument(doc.filename.replace(/\.pdf$/, ".docx"))}
+                            <button onClick={() => handleDownload(doc.filename)}
                               className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors"
                               style={{ borderRadius: 2 }}>
                               <Download className="w-3 h-3" />
@@ -558,7 +595,7 @@ function ConvertPage() {
               <div className="flex items-center justify-between px-4 py-2.5 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
                 <p className="text-xs font-medium truncate text-zinc-600 dark:text-zinc-300 max-w-[200px]">{selectedFile}</p>
                 <div className="flex items-center gap-3 shrink-0">
-                  <button onClick={() => downloadDocument(selectedFile)}
+                  <button onClick={() => safeDownload(selectedFile)}
                     className="text-xs text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 transition-colors">
                     {t("convert.actions.downloadPdf")}
                   </button>

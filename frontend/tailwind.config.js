@@ -92,7 +92,10 @@ export default {
       },
 
       fontFamily: {
-        sans: ['Inter', 'ui-sans-serif', 'system-ui'],
+        // Inter has no Arabic glyphs; the Arabic face follows it in the stack so
+        // Latin text keeps Inter's metrics and Arabic text stops falling back to
+        // whatever the OS happens to pick.
+        sans: ['Inter', 'IBM Plex Sans Arabic', 'ui-sans-serif', 'system-ui'],
       },
 
       borderRadius: {

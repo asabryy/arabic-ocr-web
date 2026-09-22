@@ -23,15 +23,28 @@ RESEND_ENDPOINT = "https://api.resend.com/emails"
 _TIMEOUT = 15
 
 
-def _send(*, kind: str, to: str, subject: str, html_body: str, reply_to: str | None = None) -> None:
+def _send(
+    *,
+    kind: str,
+    to: str,
+    subject: str,
+    html_body: str,
+    reply_to: str | None = None,
+    link: str | None = None,
+) -> None:
     """Deliver one message. Raises on failure so callers can decide what to do.
 
     A missing API key is a skip, not a failure: local development and CI run without
-    credentials and must not have signup blow up in their faces.
+    credentials and must not have signup blow up in their faces. ``link`` is printed
+    in that case only when EMAIL_ECHO_LINKS is explicitly on, so the flows stay
+    testable locally without writing live verification and reset tokens into logs
+    that are retained indefinitely and readable by anyone with dashboard access.
     """
     if not settings.RESEND_API_KEY:
         metrics.EMAILS_SENT.labels(kind=kind, outcome="skipped").inc()
         logger.warning("RESEND_API_KEY not set — %s email to %s not sent", kind, to)
+        if link and settings.EMAIL_ECHO_LINKS:
+            logger.warning("EMAIL_ECHO_LINKS is on — %s link for %s: %s", kind, to, link)
         return
 
     payload = {
@@ -64,8 +77,16 @@ def _send(*, kind: str, to: str, subject: str, html_body: str, reply_to: str | N
         )
         resp.raise_for_status()
 
+    # Read the id before counting, and never let a surprising 2xx body (a proxy
+    # interstitial, an empty 202) turn a delivered message into a caller-visible
+    # failure — /feedback would answer 503 and the user would send it twice.
+    try:
+        message_id = resp.json().get("id")
+    except ValueError:
+        message_id = "unknown"
+
     metrics.EMAILS_SENT.labels(kind=kind, outcome="sent").inc()
-    logger.info("Sent %s email to %s (id=%s)", kind, to, resp.json().get("id"))
+    logger.info("Sent %s email to %s (id=%s)", kind, to, message_id)
 
 
 # ── Shared chrome ─────────────────────────────────────────────────────────────
@@ -78,6 +99,10 @@ def _wrap(heading: str, body: str, button_label: str | None = None, button_url: 
     """
     button = ""
     if button_label and button_url:
+        # Escaped like every other interpolation here: a token format that ever
+        # contains & " or < would otherwise silently produce an unclickable link
+        # in the one email that has to work.
+        button_url = html.escape(button_url, quote=True)
         button = (
             f'<p style="margin:28px 0"><a href="{button_url}" '
             'style="background:#6366f1;color:#ffffff;text-decoration:none;padding:12px 22px;'
@@ -116,6 +141,7 @@ def send_verification_email(to_email: str, token: str) -> None:
         to=to_email,
         subject="Confirm your email address",
         html_body=_wrap("Confirm your email", body, "Confirm email address", url),
+        link=url,
     )
 
 
@@ -130,6 +156,7 @@ def send_password_reset_email(to_email: str, token: str) -> None:
         to=to_email,
         subject="Reset your Textara password",
         html_body=_wrap("Reset your password", body, "Choose a new password", url),
+        link=url,
     )
 
 
