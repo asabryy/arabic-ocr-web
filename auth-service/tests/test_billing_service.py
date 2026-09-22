@@ -74,3 +74,28 @@ def test_claim_event_is_single_use(db):
     assert billing.claim_event(db, "evt_1", "customer.subscription.updated") is True
     db.commit()
     assert billing.claim_event(db, "evt_1", "customer.subscription.updated") is False
+
+
+def test_stale_revoking_event_for_an_old_subscription_is_ignored(db, make_user):
+    """A customer who re-subscribed after a failed card has two subscriptions.
+    The old one's eventual cancellation must not revoke the new one's access."""
+    user = make_user(plan="pro", customer_id="cus_1", sub_id="sub_new")
+    plan = billing.apply_subscription(db, user, sub(status="canceled", sub_id="sub_old"))
+    db.commit()
+    assert plan == "pro", "the live subscription still entitles them"
+    assert user.plan == "pro"
+    assert user.stripe_subscription_id == "sub_new", "pointer must not move to the dead sub"
+
+
+def test_revoking_event_for_the_current_subscription_still_applies(db, make_user):
+    user = make_user(plan="pro", customer_id="cus_1", sub_id="sub_1")
+    plan = billing.apply_subscription(db, user, sub(status="canceled", sub_id="sub_1"))
+    db.commit()
+    assert plan == "free"
+    assert user.stripe_subscription_id is None
+
+
+def test_upgrade_still_applies_when_no_subscription_is_recorded(db, make_user):
+    """First purchase: nothing to compare against, so the guard must not block it."""
+    user = make_user(customer_id="cus_1", sub_id=None)
+    assert billing.apply_subscription(db, user, sub(status="active", sub_id="sub_1")) == "pro"

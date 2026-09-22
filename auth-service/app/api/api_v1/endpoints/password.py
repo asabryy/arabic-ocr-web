@@ -1,9 +1,10 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.email import send_password_reset_email
+from app.core.rate_limit import limiter
 from app.core.security import (
     create_password_reset_token,
     hash_password,
@@ -20,7 +21,11 @@ _RESET_SENT_MSG = "If that email is registered, a reset link has been sent."
 
 
 @router.post("/forgot-password", summary="Request a password reset email")
+# Unlimited reset mail to any address burns the send quota and the domain
+# reputation that the provider migration was meant to protect.
+@limiter.limit("3/hour")
 def forgot_password(
+    request: Request,
     body: ForgotPasswordRequest,
     db: Session = Depends(get_db),
 ):
@@ -29,8 +34,8 @@ def forgot_password(
         token = create_password_reset_token(user.id)
         try:
             send_password_reset_email(user.email, token)
-        except Exception:
-            logger.error("Failed to send reset email to %s", body.email)
+        except Exception as ex:  # noqa: BLE001
+            logger.error("Failed to send reset email to user_id=%s: %s", user.id, ex)
     # Always return the same message to avoid revealing whether the email exists
     return {"message": _RESET_SENT_MSG}
 

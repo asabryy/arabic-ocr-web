@@ -17,6 +17,8 @@ spec:
         prometheus.io/path: /metrics
         prometheus.io/port: "9100"
     spec:
+      # A 10-page document takes 100-200s; the 30s default kills it mid-run.
+      terminationGracePeriodSeconds: 300
       imagePullSecrets:
         - name: ghcr-credentials
       containers:
@@ -26,13 +28,18 @@ spec:
           ports:
             - containerPort: 9100
               name: metrics
-          # The metrics server starts before the RabbitMQ connect loop, so it doubles
-          # as a cheap liveness signal for a process that otherwise exposes nothing.
+          # The consumer refreshes /tmp/worker-alive every 30s from the AMQP I/O
+          # loop. A TCP probe on the metrics port cannot detect a dead consumer —
+          # that port is opened by a different thread and stays open regardless.
           livenessProbe:
-            tcpSocket:
-              port: metrics
-            initialDelaySeconds: 20
+            exec:
+              command:
+                - sh
+                - -c
+                - '[ $(( $(date +%s) - $(stat -c %Y /tmp/worker-alive) )) -lt 150 ]'
+            initialDelaySeconds: 30
             periodSeconds: 30
+            failureThreshold: 3
           envFrom:
             - configMapRef:
                 name: doc-manager-config
@@ -44,7 +51,9 @@ spec:
               memory: "384Mi"
               cpu: "100m"
             limits:
-              # Rendering a page to PNG spikes well past 512Mi on large scans — that cap
-              # was OOMKilling the worker mid-task. The node has ~18Gi free.
-              memory: "1Gi"
+              # Rendering a page to PNG spikes hard on large scans; 512Mi then 1Gi both
+              # OOM-killed the worker mid-document, which costs the user their job and
+              # re-bills Gemini on redelivery. The node has ~20Gi free and nothing to
+              # contend with, so buy headroom rather than shave it.
+              memory: "3Gi"
               cpu: "500m"

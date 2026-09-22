@@ -22,6 +22,21 @@ OCR_HTTP_URL = settings.OCR_HTTP_URL
 # Retry config for RabbitMQ connection
 _RETRY_DELAYS = [5, 10, 20, 40, 60]  # seconds between attempts
 
+# Liveness marker. The metrics port is opened by a separate thread and stays open
+# even if the consumer dies, so a TCP probe on it reports healthy through a total
+# OCR outage. This file is touched from the consuming connection itself, so it
+# goes stale exactly when consumption stops.
+HEARTBEAT_PATH = "/tmp/worker-alive"
+_HEARTBEAT_INTERVAL_S = 30
+
+
+def touch_heartbeat() -> None:
+    try:
+        with open(HEARTBEAT_PATH, "w") as fh:
+            fh.write(str(time.time()))
+    except OSError as e:  # noqa: BLE001 — never let the probe marker kill the worker
+        logger.warning("Could not write heartbeat file: %s", e)
+
 
 def _call_gemini(pdf_bytes: bytes, max_pages: int | None = None, mode: str = "ocr") -> bytes:
     from app.ocr.pipeline import process_pdf
@@ -187,6 +202,14 @@ def consume() -> None:
             logger.info("Waiting for messages in '%s'. CTRL+C to exit.", settings.rabbitmq_queue)
 
             channel.basic_consume(queue=settings.rabbitmq_queue, on_message_callback=_make_callback(connection))
+
+            # Re-arms itself on the connection's I/O loop; stops being refreshed the
+            # moment start_consuming() returns or the connection dies.
+            def _beat():
+                touch_heartbeat()
+                connection.call_later(_HEARTBEAT_INTERVAL_S, _beat)
+
+            _beat()
 
             try:
                 channel.start_consuming()

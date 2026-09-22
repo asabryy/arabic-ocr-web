@@ -18,8 +18,8 @@ data:
   # Plan limits (pages) — enforced at /convert, surfaced by /usage
   PLAN_FREE_DAILY_PAGES: "10"
   PLAN_FREE_MAX_DOC_PAGES: "10"
-  PLAN_PRO_DAILY_PAGES: "100"
-  PLAN_PRO_MAX_DOC_PAGES: "100"
+  PLAN_PRO_DAILY_PAGES: "50"
+  PLAN_PRO_MAX_DOC_PAGES: "40"
   # Anonymous landing-page trial
   TRIAL_MAX_PAGES: "1"
   TRIAL_RATE_LIMIT: "3/day"

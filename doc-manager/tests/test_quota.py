@@ -7,9 +7,24 @@ from app.services import quota
 
 def test_limits_for_plan():
     assert quota.limits_for("free").daily_pages == 10
-    assert quota.limits_for("pro").max_doc_pages == 100
     assert quota.limits_for(None).plan == "free"
     assert quota.limits_for("unknown").plan == "free"
+    assert quota.limits_for("pro").daily_pages > quota.limits_for("free").daily_pages
+
+
+def test_pro_max_document_does_not_consume_the_whole_day():
+    """On a paid plan the per-document figure is sold as a repeatable allowance, so
+    it must sit below the daily cap. At parity one maximum-size document exhausts
+    the day and the advertised number is usable exactly once.
+
+    Free is deliberately at parity (10/10): "one 10-page document a day" is the
+    offer, not a promise of repeated use.
+    """
+    pro = quota.limits_for("pro")
+    assert pro.max_doc_pages < pro.daily_pages, (
+        f"per-document cap {pro.max_doc_pages} must be below the daily cap "
+        f"{pro.daily_pages}"
+    )
 
 
 def test_reserve_within_limit_accumulates(db):

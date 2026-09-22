@@ -35,15 +35,16 @@ def _send(
     """Deliver one message. Raises on failure so callers can decide what to do.
 
     A missing API key is a skip, not a failure: local development and CI run without
-    credentials and must not have signup blow up in their faces. ``link`` is logged in
-    that case so verification and password reset stay reachable without credentials —
-    the flows would otherwise be untestable in exactly the environment this supports.
+    credentials and must not have signup blow up in their faces. ``link`` is printed
+    in that case only when EMAIL_ECHO_LINKS is explicitly on, so the flows stay
+    testable locally without writing live verification and reset tokens into logs
+    that are retained indefinitely and readable by anyone with dashboard access.
     """
     if not settings.RESEND_API_KEY:
         metrics.EMAILS_SENT.labels(kind=kind, outcome="skipped").inc()
         logger.warning("RESEND_API_KEY not set — %s email to %s not sent", kind, to)
-        if link:
-            logger.info("%s link for %s: %s", kind, to, link)
+        if link and settings.EMAIL_ECHO_LINKS:
+            logger.warning("EMAIL_ECHO_LINKS is on — %s link for %s: %s", kind, to, link)
         return
 
     payload = {

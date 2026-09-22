@@ -237,7 +237,7 @@
     "title": "Plan limit reached",
     "daily": "You've used {{used}} of {{limit}} pages today on the {{plan}} plan.",
     "doc": "This document has {{used}} pages; the {{plan}} plan allows up to {{limit}} per document.",
-    "upgradeHint": "Upgrade to Pro for 100 pages a day and up to 100 pages per document.",
+    "upgradeHint": "Upgrade to Pro for 50 pages a day and up to 40 pages per document.",
     "upgradeCta": "See Pro plan",
     "close": "Close"
   },
@@ -257,8 +257,8 @@
     "pro": {
       "desc": "Ideal for frequent users",
       "features": {
-        "daily": "100 pages per day",
-        "perDoc": "Up to 100 pages per document",
+        "daily": "50 pages per day",
+        "perDoc": "Up to 40 pages per document",
         "priority": "Priority support"
       }
     },
@@ -273,7 +273,7 @@
     "currentPlan": "Current plan:",
     "manage": "Manage billing",
     "manageHint": "Update your card, view invoices or cancel anytime.",
-    "upgradeHint": "Upgrade for 100 pages a day and larger documents.",
+    "upgradeHint": "Upgrade for 50 pages a day and larger documents.",
     "redirecting": "Redirecting…",
     "success": {
       "title": "You're on Pro",

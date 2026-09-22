@@ -106,9 +106,19 @@ def test_non_json_success_body_still_counts_as_sent(configured, post):
     assert count("verification", "sent") == before + 1
 
 
-def test_skipped_send_logs_the_link_for_local_dev(monkeypatch, post, caplog):
-    """Without credentials the flow must still be completable locally."""
+def test_links_are_not_logged_by_default(monkeypatch, post, caplog):
+    """A reset link is a live credential; logs outlive it and are widely readable."""
     monkeypatch.setattr(settings, "RESEND_API_KEY", "")
+    monkeypatch.setattr(settings, "EMAIL_ECHO_LINKS", False)
+    with caplog.at_level("DEBUG"):
+        email.send_password_reset_email("a@example.com", "tok789")
+    assert "tok789" not in caplog.text
+
+
+def test_links_are_echoed_only_when_explicitly_enabled(monkeypatch, post, caplog):
+    """Opt-in escape hatch so local dev without credentials stays usable."""
+    monkeypatch.setattr(settings, "RESEND_API_KEY", "")
+    monkeypatch.setattr(settings, "EMAIL_ECHO_LINKS", True)
     monkeypatch.setattr(settings, "FRONTEND_BASE_URL", "http://localhost:3000")
     with caplog.at_level("INFO"):
         email.send_password_reset_email("a@example.com", "tok789")

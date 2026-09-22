@@ -41,6 +41,18 @@ def google_auth(
             detail="Invalid Google token",
         )
 
+    # verify_oauth2_token checks signature, audience and expiry — but not whether
+    # Google has verified the address. Without this, an identity asserting an
+    # unverified address on a custom domain signs in as the existing password
+    # account for that address, inheriting its documents and plan.
+    if not idinfo.get("email_verified"):
+        metrics.LOGINS.labels(method="google", outcome="failure").inc()
+        logger.warning("Google ID token for an unverified address (user_id lookup skipped)")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="This Google account's email address is not verified.",
+        )
+
     email = idinfo["email"]
     name = idinfo.get("name", "")
 
@@ -48,9 +60,14 @@ def google_auth(
     if not user:
         user = create_google_user(db, email=email, name=name)
         metrics.SIGNUPS.labels(method="google").inc()
-        logger.info("New user created via Google OAuth: %s", email)
+        logger.info("New user created via Google OAuth: user_id=%s", user.id)
     else:
-        logger.info("Existing user signed in via Google OAuth: %s", email)
+        # Google has verified the address, so a password account that never
+        # confirmed it is confirmed now.
+        if not user.email_verified:
+            user.email_verified = True
+            db.commit()
+        logger.info("Existing user signed in via Google OAuth: user_id=%s", user.id)
 
     access_token = create_access_token(subject=user.id)
     metrics.LOGINS.labels(method="google", outcome="success").inc()
