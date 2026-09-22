@@ -318,7 +318,7 @@
     "resend": "Send the verification email again",
     "sending": "Sending…",
     "sent": "Sent — check your inbox.",
-    "limited": "Already sent one recently. Try again in a few minutes.",
+    "limited": "A verification email was requested recently. Try again in a few minutes.",
     "error": "Couldn't send it. Please try again shortly."
   }
 }

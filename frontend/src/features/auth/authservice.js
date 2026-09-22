@@ -55,7 +55,8 @@ export const refreshToken = async () => {
 
 /**
  * Ask for a fresh verification email. The server rate-limits this to once every
- * 5 minutes and answers 400 if the address is already verified.
+ * 5 minutes *per client IP* (not per account, so people behind a shared NAT can
+ * hit it for each other), and answers 400 if the address is already verified.
  */
 export const resendVerificationEmail = async () => {
   const response = await authApi.post("/verify-email/resend");

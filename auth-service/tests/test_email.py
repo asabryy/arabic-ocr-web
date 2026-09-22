@@ -92,3 +92,24 @@ def test_network_error_counts_a_failure_and_raises(configured, post):
     with pytest.raises(requests.ConnectionError):
         email.send_password_reset_email("a@example.com", "tok")
     assert count("password_reset", "failed") == before + 1
+
+
+def test_non_json_success_body_still_counts_as_sent(configured, post):
+    """A 2xx with a surprising body must not turn a delivered message into a 503."""
+    post.return_value = Mock(
+        status_code=202,
+        json=Mock(side_effect=ValueError("no json")),
+        text="",
+    )
+    before = count("verification", "sent")
+    email.send_verification_email("a@example.com", "tok")  # must not raise
+    assert count("verification", "sent") == before + 1
+
+
+def test_skipped_send_logs_the_link_for_local_dev(monkeypatch, post, caplog):
+    """Without credentials the flow must still be completable locally."""
+    monkeypatch.setattr(settings, "RESEND_API_KEY", "")
+    monkeypatch.setattr(settings, "FRONTEND_BASE_URL", "http://localhost:3000")
+    with caplog.at_level("INFO"):
+        email.send_password_reset_email("a@example.com", "tok789")
+    assert "http://localhost:3000/reset-password?token=tok789" in caplog.text

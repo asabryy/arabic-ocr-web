@@ -43,7 +43,7 @@ fi
 kubectl create secret generic auth-service-secret \
   --from-literal=DATABASE_URL="${AUTH_DATABASE_URL:-postgresql://textara:textara@postgres:5432/textara}" \
   --from-literal=SECRET_KEY="${AUTH_SECRET_KEY:-local-dev-secret-key}" \
-  --from-literal=SENDGRID_API_KEY="${SENDGRID_API_KEY:-}" \
+  --from-literal=RESEND_API_KEY="${RESEND_API_KEY:-}" \
   -n "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
 
 kubectl create secret generic doc-manager-secret \
