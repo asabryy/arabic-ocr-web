@@ -7,6 +7,9 @@ data:
   ALGORITHM: "HS256"
   ACCESS_TOKEN_EXPIRES_MINUTES: "30"
   EMAIL_FROM: "noreply@textara.app"
+  # Inbox that support/feedback submissions are forwarded to
+  SUPPORT_EMAIL: "support@textara.app"
+  FEEDBACK_RATE_LIMIT: "3/hour"
   FRONTEND_BASE_URL: "https://textara.app"
   REGISTER_RATE_LIMIT: "5/minute"
   LOGIN_RATE_LIMIT: "5/minute"

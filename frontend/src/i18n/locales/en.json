@@ -116,7 +116,8 @@
       "retry": "Retry",
       "downloadPdf": "Download PDF",
       "downloadDocx": "Download DOCX",
-      "delete": "Delete"
+      "delete": "Delete",
+      "reportProblem": "Report a problem"
     },
     "toasts": {
       "uploaded": "\"{{filename}}\" uploaded.",
@@ -292,5 +293,24 @@
       "failed": "Couldn't reach the payment page. Please try again.",
       "alreadyPro": "You're already on Pro. Refresh to see your plan."
     }
+  },
+  "feedback": {
+    "menuItem": "Send feedback",
+    "title": "Send feedback",
+    "intro": "Found a bug, or something not working right? Tell us and we'll reply by email.",
+    "categories": {
+      "bug": "Bug",
+      "feedback": "Feedback",
+      "support": "Support"
+    },
+    "email": "Your email",
+    "message": "Message",
+    "placeholder": "What happened? If a conversion failed, tell us the document and what you expected.",
+    "submit": "Send",
+    "sending": "Sending…",
+    "cancel": "Cancel",
+    "close": "Close",
+    "sent": "Thanks — we've got your message and will reply by email.",
+    "error": "Couldn't send your message. Please try again in a moment."
   }
 }

@@ -7,6 +7,7 @@ import AuthLayout from "../layouts/AuthLayout";
 import LoginModal from "../components/auth/LoginModal";
 import SignupModal from "../components/auth/SignupModal";
 import LimitModal from "../components/usage/LimitModal";
+import FeedbackModal from "../components/feedback/FeedbackModal";
 import { onQuotaExceeded } from "../api/client";
 
 import LandingPage from "../pages/LandingPage";
@@ -96,6 +97,7 @@ function RouterContent() {
       {showLogin && <LoginModal isOpen onClose={closeModals} />}
       {showRegister && <SignupModal isOpen onClose={closeModals} />}
       {limitDetail && <LimitModal detail={limitDetail} onClose={() => setLimitDetail(null)} />}
+      <FeedbackModal />
     </>
   );
 }

@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     # Email (SendGrid) — optional; email sending is skipped if empty
     SENDGRID_API_KEY: str = ""
     EMAIL_FROM: str = "noreply@textara.app"
+    # Where support/feedback submissions are forwarded.
+    SUPPORT_EMAIL: str = "support@textara.app"
+    FEEDBACK_RATE_LIMIT: str = "3/hour"
 
     # Frontend (for verification links)
     FRONTEND_BASE_URL: str = "https://textara.app"

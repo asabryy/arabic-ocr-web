@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 
 from app.api.api_v1.endpoints.admin import router as admin_router
 from app.api.api_v1.endpoints.billing import router as billing_router
+from app.api.api_v1.endpoints.feedback import router as feedback_router
 from app.api.api_v1.endpoints.google_auth import router as google_auth_router
 from app.api.api_v1.endpoints.health import router as health_router
 from app.api.api_v1.endpoints.login import router as login_router
@@ -26,6 +27,7 @@ api_router.include_router(google_auth_router, prefix="/auth/google",  tags=["Aut
 api_router.include_router(health_router,      prefix="/health",        tags=["Health"])
 api_router.include_router(users_router,    prefix="/users",          tags=["Auth"])
 api_router.include_router(billing_router,  prefix="/billing",        tags=["Billing"])
+api_router.include_router(feedback_router, prefix="/feedback",       tags=["Support"])
 # Public + signature-verified. Must stay outside any auth dependency.
 api_router.include_router(
     stripe_webhook_router, prefix="/billing/webhook", tags=["Billing"]

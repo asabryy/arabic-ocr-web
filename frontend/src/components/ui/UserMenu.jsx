@@ -2,8 +2,9 @@ import React, { Fragment } from "react";
 import { Menu, MenuButton, MenuItems, MenuItem } from "@headlessui/react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { User, LayoutDashboard, Settings, LogOut } from "lucide-react";
+import { User, LayoutDashboard, Settings, LogOut, MessageSquare } from "lucide-react";
 import clsx from "clsx";
+import { openFeedback } from "../../api/feedback";
 
 const UserMenu = ({ user, onLogout, openLogin, openRegister }) => {
   const { t, i18n } = useTranslation();
@@ -59,6 +60,16 @@ const UserMenu = ({ user, onLogout, openLogin, openRegister }) => {
                   )}
                 </MenuItem>
               ))}
+              <MenuItem as={Fragment}>
+                {({ focus }) => (
+                  <button onClick={() => openFeedback()}
+                    className={clsx("w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors", focus ? "bg-zinc-50 text-zinc-900" : "text-zinc-600")}
+                    style={{ borderRadius: 2 }}>
+                    <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+                    {t("feedback.menuItem")}
+                  </button>
+                )}
+              </MenuItem>
               <div className="my-1 border-t border-zinc-100" />
               <MenuItem as={Fragment}>
                 {({ focus }) => (
@@ -89,6 +100,17 @@ const UserMenu = ({ user, onLogout, openLogin, openRegister }) => {
                   className={clsx("w-full text-left px-3 py-2 text-sm font-medium transition-colors", focus ? "bg-indigo-50 text-indigo-600" : "text-indigo-500")}
                   style={{ borderRadius: 2 }}>
                   {t("userMenu.createAccount")}
+                </button>
+              )}
+            </MenuItem>
+            <div className="my-1 border-t border-zinc-100" />
+            <MenuItem as={Fragment}>
+              {({ focus }) => (
+                <button onClick={() => openFeedback()}
+                  className={clsx("w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors", focus ? "bg-zinc-50 text-zinc-900" : "text-zinc-600")}
+                  style={{ borderRadius: 2 }}>
+                  <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+                  {t("feedback.menuItem")}
                 </button>
               )}
             </MenuItem>
