@@ -69,6 +69,11 @@ GEMINI_COST_USD = Counter(
 
 # ── API: product / business counters ──────────────────────────────────────────
 
+REFUNDS = Counter(
+    "textara_refunds",
+    "Quota refunds after a failed conversion",
+    ["outcome"],  # ok|failed — a silent refund outage means users pay for failures
+)
 UPLOADS = Counter("textara_uploads", "PDF uploads accepted")
 CONVERSIONS_REQUESTED = Counter(
     "textara_conversions_requested",
@@ -129,6 +134,9 @@ for _mode in ("ocr", "trial"):
     OCR_REQUESTS.labels(status="success", mode=_mode)
     OCR_REQUESTS.labels(status="error", mode=_mode)
     OCR_PAGES.labels(mode=_mode)
+
+for _outcome in ("ok", "failed"):
+    REFUNDS.labels(outcome=_outcome)
 
 for _reason in ("rate_limited", "too_large", "invalid_pdf"):
     TRIAL_REJECTIONS.labels(reason=_reason)

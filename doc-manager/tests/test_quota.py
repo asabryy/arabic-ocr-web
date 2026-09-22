@@ -76,3 +76,19 @@ def test_concurrent_reserves_never_exceed_limit(db):
     assert results.count(True) == 10
     assert results.count(False) == 10
     assert quota.used_today(db, 1) == 10
+
+
+def test_release_targets_the_reservation_day_not_today(db):
+    """A task reserved at 23:59 and failing at 00:00 must credit the day it was
+    reserved on. Crediting 'today' zeroed a fresh day's counter and handed out a
+    repeatable nightly cap bypass."""
+    from datetime import date, timedelta
+
+    yesterday = date.today() - timedelta(days=1)
+    quota.reserve(db, 1, 10, 10, "free", day=yesterday)
+    quota.reserve(db, 1, 10, 10, "free")  # a new day, a fresh allowance
+
+    quota.release(db, 1, 10, day=yesterday)
+
+    assert quota.used_today(db, 1) == 10, "today's counter must be untouched"
+    assert quota.used_today(db, 1, day=yesterday) == 0
