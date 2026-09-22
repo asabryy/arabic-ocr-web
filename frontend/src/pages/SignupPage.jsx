@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { Check, X, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { registerUser, googleAuth } from "../features/auth/authservice";
+import { errorText } from "../api/errorText";
 
 // ── Validation rules ────────────────────────────────────────────────────────
 
@@ -110,7 +111,7 @@ function SignupPage() {
       await registerUser({ name: form.name.trim(), email: form.email.trim().toLowerCase(), password: form.password });
       setRegistered(true);
     } catch (err) {
-      toast.error(err?.response?.data?.detail || "Registration failed. Please try again.");
+      toast.error(errorText(err, t("auth.errors.signupFailed")));
     } finally {
       setLoading(false);
     }

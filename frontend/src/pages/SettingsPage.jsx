@@ -9,7 +9,7 @@ import { useUpgrade } from "../hooks/useUpgrade";
 function SettingsPage() {
   const { t } = useTranslation();
   const { user, login } = useAuth();
-  const { startUpgrade, loading: upgrading } = useUpgrade();
+  const { startUpgrade, loading: upgrading, error: upgradeError } = useUpgrade();
   const [portalLoading, setPortalLoading] = useState(false);
   const [portalError, setPortalError] = useState(false);
   const [name, setName] = useState(user?.name || "");
@@ -152,6 +152,11 @@ function SettingsPage() {
             )}
           </div>
           {portalError && <p className="text-xs text-red-500">{t("billing.errors.failed")}</p>}
+          {upgradeError && (
+            <p className="text-xs text-red-500">
+              {t(upgradeError === "already_pro" ? "billing.errors.alreadyPro" : "billing.errors.failed")}
+            </p>
+          )}
         </div>
       </div>
     </div>

@@ -87,7 +87,8 @@
       "title": "No conversions yet",
       "body": "Upload an Arabic PDF on the Convert page and run OCR to get an editable Word document.",
       "cta": "Start converting"
-    }
+    },
+    "overview": "Overview"
   },
   "convert": {
     "title": "Convert",
@@ -130,7 +131,8 @@
       "uploadFailed": "Upload failed. Please try again.",
       "convertFailed": "Failed to queue conversion.",
       "previewFailed": "Failed to load preview.",
-      "deleteFailed": "Failed to delete document."
+      "deleteFailed": "Failed to delete document.",
+      "downloadFailed": "Couldn't download the file. Please try again."
     },
     "empty": {
       "title": "No files yet",
@@ -138,26 +140,6 @@
     },
     "warnings": {
       "tooManyPages": "This file has {{pages}} pages — your plan allows {{limit}} per document."
-    }
-  },
-  "fileExplorer": {
-    "loading": "Loading…",
-    "documents_one": "{{count}} document",
-    "documents_other": "{{count}} documents",
-    "uploadPdf": "Upload PDF",
-    "downloadPdf": "Download PDF",
-    "previewLoading": "Loading preview…",
-    "status": {
-      "pending": "Pending",
-      "processing": "Converting",
-      "done": "Done",
-      "failed": "Failed"
-    },
-    "empty": {
-      "title": "Convert your first document",
-      "body": "Upload an Arabic PDF and Textara will convert it to an editable Word document, preserving layout and RTL text.",
-      "upload": "Upload PDF",
-      "note": "PDF only · max 50 MB · free up to 50 pages/month"
     }
   },
   "auth": {

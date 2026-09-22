@@ -5,6 +5,7 @@ import { GoogleLogin } from "@react-oauth/google";
 import toast from "react-hot-toast";
 import { useAuth } from "../auth/AuthContext";
 import { loginUser, googleAuth } from "../features/auth/authservice";
+import { errorText } from "../api/errorText";
 
 function LoginPage() {
   const { t } = useTranslation();
@@ -21,7 +22,7 @@ function LoginPage() {
       await login(token);
       navigate("/dashboard", { replace: true });
     } catch (err) {
-      toast.error(err?.response?.data?.detail || "Incorrect email or password.");
+      toast.error(errorText(err, t("auth.errors.loginFailed")));
     } finally {
       setLoading(false);
     }

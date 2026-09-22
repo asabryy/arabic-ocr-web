@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Eye, EyeOff, CheckCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import { resetPassword } from "../features/auth/authservice";
+import { errorText } from "../api/errorText";
 
 const PASSWORD_RULES = [
   { key: "minLength", label: "At least 8 characters",        test: (p) => p.length >= 8 },
@@ -68,7 +69,7 @@ function ResetPasswordPage() {
       await resetPassword({ token, new_password: form.new_password });
       setDone(true);
     } catch (err) {
-      toast.error(err?.response?.data?.detail || "Reset failed. The link may be expired.");
+      toast.error(errorText(err, "Could not reset your password."));
     } finally {
       setLoading(false);
     }

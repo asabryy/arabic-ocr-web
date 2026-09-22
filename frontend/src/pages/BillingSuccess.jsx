@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { CheckCircle2, Loader2 } from "lucide-react";
@@ -17,13 +17,17 @@ function BillingSuccess() {
   const [timedOut, setTimedOut] = useState(false);
   const isPro = user?.plan === PLAN_PRO;
 
+  // A ref, not a local: `login` identity changes re-run this effect, which used to
+  // reset a local counter to zero every tick — so MAX_POLLS was unreachable and a
+  // customer whose webhook was slow watched the spinner forever.
+  const polls = useRef(0);
+
   useEffect(() => {
     if (isPro) return undefined;
-    let polls = 0;
     const token = localStorage.getItem("access_token");
     const id = setInterval(async () => {
-      polls += 1;
-      if (polls > MAX_POLLS) {
+      polls.current += 1;
+      if (polls.current > MAX_POLLS) {
         clearInterval(id);
         setTimedOut(true);
         return;
