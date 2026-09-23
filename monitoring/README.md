@@ -83,3 +83,21 @@ Nothing inside the cluster can tell you the cluster is gone. Add a free
 [healthchecks.io](https://healthchecks.io) check pinged from a Grafana webhook contact
 point, or an UptimeRobot check against `https://textara.app`, so a dead node still
 reaches you.
+
+### Applied 2026-09-23
+
+Both manual fixes above are done:
+
+- **Loki**: added a `compactor` block with `retention_enabled: true` and
+  `shared_store: filesystem` (the 2.9.x spelling — `delete_request_store` is 3.x),
+  and dropped `retention_period` to `168h`. Verified via `/config` on the running
+  pod. Nothing had ever been deleted before this; the compactor waits 10 minutes
+  for the ring to stabilise, then starts.
+- **Prometheus**: removed the `ocr-worker-desktop` scrape job. `/api/v1/targets`
+  now lists only prometheus, kubernetes-pods, kubernetes-apiserver and
+  kubernetes-nodes-cadvisor, so `up == 0` is meaningful again.
+
+Both are live-only ConfigMaps and are still not version-controlled. Editing them
+means `kubectl create configmap --from-file ... --dry-run=client -o yaml | kubectl
+apply -f -` followed by a rollout restart. Bringing the monitoring stack into this
+repo is worth doing, but replacing the running stack is a deliberate operation.
