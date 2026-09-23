@@ -33,7 +33,8 @@ rules:
   - apiGroups: ["batch"]
     resources: [jobs]
     verbs: [get, list, watch, create, update, patch, delete]
-  # cert-manager Certificates/Issuers live in k8s/cert-manager/.
+  # Namespaced cert-manager objects. The ClusterIssuer is cluster-scoped and is
+  # granted separately in the ClusterRole below.
   - apiGroups: ["cert-manager.io"]
     resources: [certificates, issuers]
     verbs: [get, list, watch, create, update, patch, delete]
@@ -89,6 +90,12 @@ rules:
   - apiGroups: [""]
     resources: [namespaces]
     verbs: [get, list, create, patch]
+  # k8s/cert-manager/cluster-issuer.yaml is the one cluster-scoped object the
+  # deploy applies. No delete: CI should never be able to remove the ACME issuer
+  # that every certificate in the cluster depends on.
+  - apiGroups: ["cert-manager.io"]
+    resources: [clusterissuers]
+    verbs: [get, list, create, update, patch]
   - apiGroups: [""]
     resources: [pods, services, nodes]
     verbs: [get, list]
