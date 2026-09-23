@@ -1,0 +1,120 @@
+# CI identity for GitHub Actions.
+#
+# Replaces the stock k3s admin certificate, which is system:masters — that single
+# GitHub secret could read every Secret in the cluster (Supabase DSN, JWT signing
+# key, both Stripe keys, R2 credentials, the Gemini key), from anywhere on the
+# internet, since the API server is reachable on 6443.
+#
+# This identity can still read and write Secrets in `textara` — deploy.yml creates
+# them, so that is unavoidable — but it can no longer touch other namespaces, modify
+# RBAC (so it cannot escalate itself), reach nodes, or read cluster-wide secrets.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ci-deployer
+  namespace: textara
+---
+# Everything deploy.yml does inside the app namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ci-deployer
+  namespace: textara
+rules:
+  - apiGroups: [""]
+    resources: [pods, pods/log, pods/exec, services, configmaps, secrets, persistentvolumeclaims]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: ["apps"]
+    resources: [deployments, statefulsets, replicasets]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: ["networking.k8s.io"]
+    resources: [ingresses]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: ["batch"]
+    resources: [jobs]
+    verbs: [get, list, watch, create, update, patch, delete]
+  # cert-manager Certificates/Issuers live in k8s/cert-manager/.
+  - apiGroups: ["cert-manager.io"]
+    resources: [certificates, issuers]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [""]
+    resources: [events]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ci-deployer
+  namespace: textara
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: ci-deployer}
+subjects:
+  - kind: ServiceAccount
+    name: ci-deployer
+    namespace: textara
+---
+# diagnostics.yml resets the Grafana admin password and reads its deployment.
+# Deliberately not a blanket secrets grant: only get/patch, only here.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ci-deployer-monitoring
+  namespace: monitoring
+rules:
+  - apiGroups: [""]
+    resources: [pods, pods/log, pods/exec, secrets, configmaps]
+    verbs: [get, list, patch]
+  - apiGroups: ["apps"]
+    resources: [deployments]
+    verbs: [get, list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ci-deployer-monitoring
+  namespace: monitoring
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: ci-deployer-monitoring}
+subjects:
+  - kind: ServiceAccount
+    name: ci-deployer
+    namespace: textara
+---
+# The only cluster-scoped grants: `apply -f k8s/namespace.yaml` in deploy.yml, and
+# the cluster-wide *reads* diagnostics.yml uses to survey the cluster.
+# Read-only everywhere except namespaces, and no access to secrets at this scope.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ci-deployer
+rules:
+  - apiGroups: [""]
+    resources: [namespaces]
+    verbs: [get, list, create, patch]
+  - apiGroups: [""]
+    resources: [pods, services, nodes]
+    verbs: [get, list]
+  - apiGroups: ["apps"]
+    resources: [deployments, statefulsets]
+    verbs: [get, list]
+  - apiGroups: ["networking.k8s.io"]
+    resources: [ingresses]
+    verbs: [get, list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ci-deployer
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: ci-deployer}
+subjects:
+  - kind: ServiceAccount
+    name: ci-deployer
+    namespace: textara
+---
+# Kubernetes 1.24+ no longer auto-creates SA token secrets.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ci-deployer-token
+  namespace: textara
+  annotations:
+    kubernetes.io/service-account.name: ci-deployer
+type: kubernetes.io/service-account-token

@@ -9,7 +9,9 @@ data:
   EMAIL_FROM: "noreply@textara.app"
   EMAIL_FROM_NAME: "Textara"
   # Inbox that support/feedback submissions are forwarded to
-  SUPPORT_EMAIL: "support@textara.app"
+  # Goes to a real inbox. Resend only requires the *sender* domain to be
+  # verified, so any recipient works. Replies use the submitter as reply-to.
+  SUPPORT_EMAIL: "ahmedsabry320@gmail.com"
   FEEDBACK_RATE_LIMIT: "3/hour"
   FRONTEND_BASE_URL: "https://textara.app"
   REGISTER_RATE_LIMIT: "5/minute"
