@@ -7,6 +7,7 @@ from app.api.api_v1.endpoints.billing import router as billing_router
 from app.api.api_v1.endpoints.feedback import router as feedback_router
 from app.api.api_v1.endpoints.google_auth import router as google_auth_router
 from app.api.api_v1.endpoints.health import router as health_router
+from app.api.api_v1.endpoints.internal import router as internal_router
 from app.api.api_v1.endpoints.login import router as login_router
 from app.api.api_v1.endpoints.password import router as password_router
 from app.api.api_v1.endpoints.refresh import router as refresh_router
@@ -34,4 +35,10 @@ api_router.include_router(
 )
 api_router.include_router(
     admin_router, prefix="/admin", tags=["Admin"], dependencies=[Depends(require_admin_key)]
+)
+# Service-to-service only (doc-manager worker -> conversion-finished email). Guarded
+# by its own shared-secret header and 404s entirely when INTERNAL_API_KEY is unset;
+# it should not be routed by the public ingress.
+api_router.include_router(
+    internal_router, prefix="/internal/notifications", tags=["Internal"]
 )

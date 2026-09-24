@@ -25,7 +25,10 @@ for _kind in ("verification", "password_reset", "feedback"):
     for _outcome in ("sent", "failed", "skipped"):
         EMAILS_SENT.labels(kind=_kind, outcome=_outcome)
 
-for _outcome in ("applied", "duplicate", "ignored", "no_user", "invalid_signature", "no_secret"):
+for _outcome in (
+    "applied", "duplicate", "ignored", "no_user",
+    "invalid_signature", "no_secret", "unhandled_mode",
+):
     for _type in (
         "checkout.session.completed",
         "customer.subscription.created",

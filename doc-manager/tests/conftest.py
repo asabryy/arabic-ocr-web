@@ -21,6 +21,7 @@ from app.db.tables import metadata
 from app.dependencies.auth import get_current_user_id
 from app.dependencies.storage import get_storage
 from app.main import app
+from app.models import conversion_attempt  # noqa: F401  # registers its table on `metadata`
 from app.services.local_storage import LocalFileStorage
 
 TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
@@ -98,7 +99,7 @@ def engine():
 def db(engine):
     """Fresh state per test: seed a free user (1) and a pro user (2)."""
     with engine.begin() as conn:
-        conn.execute(text("TRUNCATE usage_daily, users"))
+        conn.execute(text("TRUNCATE conversion_attempts, usage_daily, users"))
         conn.execute(text("INSERT INTO users (id, plan) VALUES (1, 'free'), (2, 'pro')"))
     return engine
 
@@ -108,3 +109,20 @@ def db_client(client, db):
     app.dependency_overrides[get_engine] = lambda: db
     yield client
     app.dependency_overrides.pop(get_engine, None)
+
+
+@pytest.fixture
+def attempts(db):
+    """Rows written to conversion_attempts, oldest first."""
+
+    def _read() -> list[dict]:
+        with db.connect() as conn:
+            rows = conn.execute(
+                text(
+                    "SELECT user_id, pages, total_pages, start_page, end_page, outcome, plan "
+                    "FROM conversion_attempts ORDER BY id"
+                )
+            ).mappings()
+            return [dict(r) for r in rows]
+
+    return _read

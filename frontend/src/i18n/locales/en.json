@@ -110,7 +110,8 @@
       "pending": "Pending",
       "processing": "Converting",
       "done": "Done",
-      "failed": "Failed"
+      "failed": "Failed",
+      "partial": "In batches"
     },
     "actions": {
       "convert": "Convert",
@@ -132,14 +133,25 @@
       "convertFailed": "Failed to queue conversion.",
       "previewFailed": "Failed to load preview.",
       "deleteFailed": "Failed to delete document.",
-      "downloadFailed": "Couldn't download the file. Please try again."
+      "downloadFailed": "Couldn't download the file. Please try again.",
+      "progressFailed": "Couldn't load conversion progress."
     },
     "empty": {
       "title": "No files yet",
       "body": "Upload an Arabic PDF above to get started."
     },
     "warnings": {
-      "tooManyPages": "This file has {{pages}} pages — your plan allows {{limit}} per document."
+      "tooManyPages": "This file has {{pages}} pages — your plan converts {{limit}} at a time, so it will go through in batches."
+    },
+    "partial": {
+      "pages": "Pages {{start}}–{{end}}",
+      "progress": "{{converted}} of {{total}} pages converted",
+      "plan": "{{total}} pages · {{batch}} at a time on your plan",
+      "convertNext": "Convert {{start}}–{{end}}",
+      "complete": "All {{total}} pages converted",
+      "queued": "Converting pages {{start}}–{{end}}. {{remaining}} pages of \"{{filename}}\" still to go.",
+      "queuedFinal": "Converting the last pages of \"{{filename}}\" ({{start}}–{{end}}).",
+      "hint": "Each batch downloads as its own Word file."
     }
   },
   "auth": {
@@ -191,8 +203,12 @@
     "download": "Download DOCX",
     "remainingPages_one": "{{count}} more page in this document.",
     "remainingPages_other": "{{count}} more pages in this document.",
-    "moreDocs": "Convert full documents with a free account.",
-    "signupCta": "Sign up free to convert the whole document",
+    "afterTrial": {
+      "free": "A free account converts up to {{perDoc}} pages at a time and remembers where it stopped, so you can work through the rest of this document batch by batch.",
+      "pro": "Pro takes {{perDoc}} pages per batch, up to {{daily}} pages a day."
+    },
+    "moreDocs": "A free account converts {{daily}} pages a day. No card needed.",
+    "signupCta": "Create a free account",
     "tryAnother": "Try another file",
     "limited": {
       "title": "Today's free trials are used up",
@@ -218,9 +234,11 @@
   "limits": {
     "title": "Plan limit reached",
     "daily": "You've used {{used}} of {{limit}} pages today on the {{plan}} plan.",
-    "doc": "This document has {{used}} pages; the {{plan}} plan allows up to {{limit}} per document.",
-    "upgradeHint": "Upgrade to Pro for 50 pages a day and up to 40 pages per document.",
-    "upgradeCta": "See Pro plan",
+    "doc": "This document is {{used}} pages. The {{plan}} plan converts {{limit}} pages at a time, so it goes through in batches — take the next {{limit}} pages now and pick up where you left off whenever you like.",
+    "upgradeHint": "Pro converts 40 pages per batch and 50 pages a day, so a long document takes far fewer rounds.",
+    "proPrice": "Pro is $9.99 per month. Cancel anytime.",
+    "upgradeCta": "Continue to payment · $9.99/mo",
+    "checkoutNote": "Takes you to Stripe to enter your card details.",
     "close": "Close"
   },
   "pricing": {

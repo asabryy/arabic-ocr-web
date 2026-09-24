@@ -204,3 +204,94 @@ def send_feedback_email(
         html_body=_wrap(f"New {category} report", body),
         reply_to=reply_to,
     )
+
+
+# The worker's conversion-finished notification is a new `kind`. A counter child does
+# not exist until .labels() is first called, so without this a total outage of these
+# sends would look exactly like "no long conversions happened" — no series, no alert,
+# a panel reading "No data". Create them at zero, at import time.
+for _outcome in ("sent", "failed", "skipped"):
+    metrics.EMAILS_SENT.labels(kind="conversion", outcome=_outcome)
+
+
+def _human_duration(seconds: float | None) -> str:
+    """Render a duration as e.g. 4 minutes / 1 minute 30 seconds; empty if unknown."""
+    if not seconds or seconds < 0:
+        return ""
+    total = int(seconds)
+    minutes, secs = divmod(total, 60)
+    if not minutes:
+        return f"{secs} second{'s' if secs != 1 else ''}"
+    out = f"{minutes} minute{'s' if minutes != 1 else ''}"
+    if secs:
+        out += f" {secs} second{'s' if secs != 1 else ''}"
+    return out
+
+
+def send_conversion_complete_email(
+    to_email: str,
+    *,
+    filename: str,
+    outcome: str,
+    pages: int | None = None,
+    duration_seconds: float | None = None,
+    reason: str | None = None,
+) -> None:
+    """Tell someone their conversion finished, because nothing else does.
+
+    A conversion runs for minutes and the frontend only polls while the Convert page
+    is mounted, so a user who closes the tab is never told anything — success or
+    failure. Only long jobs get here (the worker applies the threshold); the link
+    goes to the dashboard, which lists the file with its download.
+    """
+    url = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/dashboard"
+    # Long or hostile filenames must not wreck the subject line or the layout.
+    short_name = filename if len(filename) <= 60 else filename[:57] + "..."
+    name_html = html.escape(short_name)
+
+    facts = []
+    if pages:
+        facts.append(f"{pages} page{'s' if pages != 1 else ''}")
+    took = _human_duration(duration_seconds)
+    if took:
+        facts.append(f"took {took}")
+    detail = f" ({', '.join(facts)})" if facts else ""
+
+    if outcome == "done":
+        subject = f"Your document is ready: {short_name}"
+        heading = "Your document is ready"
+        body = (
+            f'<p style="margin:0"><strong>{name_html}</strong> has finished converting'
+            f"{html.escape(detail)}. It is waiting in your documents, ready to "
+            "download as a Word file.</p>"
+        )
+        button = "Download your document"
+    else:
+        subject = f"We couldn't convert {short_name}"
+        heading = "That conversion didn't work"
+        if reason == "no_text":
+            explanation = (
+                "We could not find any readable text in it. That usually means the "
+                "pages are photographs or a scan too faint to read. A sharper scan, "
+                "straightened and taken in good light, normally converts fine."
+            )
+        else:
+            explanation = (
+                "Something went wrong on our side while converting it. You can "
+                "upload it again — and if it fails a second time, please tell us."
+            )
+        body = (
+            f'<p style="margin:0 0 12px"><strong>{name_html}</strong> could not be '
+            f"converted{html.escape(detail)}.</p>"
+            f'<p style="margin:0 0 12px">{explanation}</p>'
+            '<p style="margin:0">These pages were not counted against your daily '
+            "allowance.</p>"
+        )
+        button = "Try again"
+
+    _send(
+        kind="conversion",
+        to=to_email,
+        subject=subject,
+        html_body=_wrap(heading, body, button, url),
+    )

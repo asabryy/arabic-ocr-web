@@ -9,6 +9,7 @@ import {
 import {
   fetchDocuments, uploadDocument, deleteDocument,
   convertDocument, getPreviewBlob, downloadDocument,
+  fetchConversionProgress,
 } from "../api/docs";
 import PDFViewer from "../components/pdf/PDFViewer";
 import Dropzone from "../components/upload/Dropzone";
@@ -26,7 +27,38 @@ function fmtElapsed(seconds) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-const STATUS_ORDER = { processing: 0, pending: 1, failed: 2, done: 3 };
+const STATUS_ORDER = { processing: 0, pending: 1, partial: 1, failed: 2, done: 3 };
+
+// A document longer than the plan's per-document limit is converted a batch at a
+// time. Each batch is stored as its own file, `book__p11-20.pdf`, which is how the
+// outputs avoid overwriting each other — so the list has to fold those back under
+// the document they came from instead of showing them as separate uploads.
+const PART_RE = /^(.+)__p(\d+)-(\d+)\.([A-Za-z0-9]+)$/;
+
+function parsePart(filename) {
+  const m = PART_RE.exec(filename ?? "");
+  if (!m) return null;
+  return { source: `${m[1]}.${m[4]}`, start: Number(m[2]), end: Number(m[3]) };
+}
+
+/** "book.pdf · Pages 11–20" — a batch's own filename is not what the user uploaded. */
+function friendlyName(t, filename) {
+  const part = parsePart(filename);
+  return part
+    ? `${part.source} · ${t("convert.partial.pages", { start: part.start, end: part.end })}`
+    : filename;
+}
+
+function groupParts(docs) {
+  const byParent = {};
+  docs.forEach((doc) => {
+    const part = parsePart(doc.filename);
+    if (!part) return;
+    (byParent[part.source] ||= []).push({ ...part, doc });
+  });
+  Object.values(byParent).forEach((list) => list.sort((a, b) => a.start - b.start));
+  return byParent;
+}
 
 function sortDocs(docs, key, dir) {
   return [...docs].sort((a, b) => {
@@ -47,6 +79,7 @@ function StatusText({ status, elapsed }) {
   const cls = {
     pending:    "status-pending",
     processing: "status-processing",
+    partial:    "status-processing",
     done:       "status-done",
     failed:     "status-failed",
   }[status] ?? "status-pending";
@@ -107,6 +140,7 @@ function ConvertPage() {
   const [previewUrl,     setPreviewUrl]     = useState(null);
   const [uploadProgress, setUploadProgress] = useState(null);
   const [converting,     setConverting]     = useState(new Set());
+  const [progress,       setProgress]       = useState({});        // filename → batch progress
 
   // ── New feature state ──
   const [searchQuery,    setSearchQuery]    = useState("");
@@ -129,8 +163,24 @@ function ConvertPage() {
     finally { setLoadingDocs(false); }
   };
 
+  // Which pages of each document are already done. Held server-side, so "continue
+  // from page 41" survives a reload or a different device. Refreshed on load and
+  // after anything that changes it — not on the 3s status poll, which does not.
+  const loadProgress = async () => {
+    try {
+      const data = await fetchConversionProgress();
+      const byName = {};
+      (data?.items ?? []).forEach((item) => { byName[item.filename] = item; });
+      setProgress(byName);
+    } catch {
+      // A missing progress read degrades the page to the plain list; not worth an
+      // error toast on top of whatever else is already failing.
+      setProgress({});
+    }
+  };
+
   useEffect(() => {
-    if (!authLoading && user) loadDocs();
+    if (!authLoading && user) { loadDocs(); loadProgress(); }
     else if (!authLoading && !user) setLoadingDocs(false);
   }, [authLoading, user]);
 
@@ -147,11 +197,11 @@ function ConvertPage() {
             data.forEach((d) => {
               const old = prev.find((p) => p.filename === d.filename);
               if (old?.status === "processing" && d.status === "done") {
-                toast.success(t("convert.toasts.done", { filename: d.filename }));
+                toast.success(t("convert.toasts.done", { filename: friendlyName(t, d.filename) }));
                 delete processingStart.current[d.filename];
               }
               if (old?.status === "processing" && d.status === "failed") {
-                toast.error(t("convert.toasts.failed", { filename: d.filename }));
+                toast.error(t("convert.toasts.failed", { filename: friendlyName(t, d.filename) }));
                 delete processingStart.current[d.filename];
               }
             });
@@ -229,10 +279,29 @@ function ConvertPage() {
 
   // ── Filtered + sorted docs ───────────────────────────────────────────────
 
+  const partsByParent = groupParts(docs);
+
+  // Batches belong under their document, not beside it.
+  const rootDocs = docs.filter((d) => !parsePart(d.filename));
+
   const filteredDocs = sortDocs(
-    docs.filter((d) => d.filename.toLowerCase().includes(searchQuery.toLowerCase())),
+    rootDocs.filter((d) => d.filename.toLowerCase().includes(searchQuery.toLowerCase())),
     sortKey, sortDir
   );
+
+  /** A batch's own status stands in for the document's while it is running. */
+  const effectiveStatus = (doc) => {
+    const parts = partsByParent[doc.filename];
+    if (!parts?.length) return doc.status;
+    if (parts.some((p) => p.doc.status === "processing")) return "processing";
+    if (parts.some((p) => p.doc.status === "failed")) return "failed";
+    const prog = progress[doc.filename];
+    if (prog && prog.remaining_pages === 0 && parts.every((p) => p.doc.status === "done"))
+      return "done";
+    return "partial";
+  };
+
+
 
   // ── Actions ──────────────────────────────────────────────────────────────
 
@@ -252,12 +321,28 @@ function ConvertPage() {
     finally { setUploadProgress(null); }
   };
 
-  const handleConvert = async (filename) => {
+  const handleConvert = async (filename, range) => {
     setConverting((prev) => new Set(prev).add(filename));
     processingStart.current[filename] = Date.now();
     try {
-      await convertDocument(filename);
-      setDocs((prev) => prev.map((d) => d.filename === filename ? { ...d, status: "processing" } : d));
+      const res = await convertDocument(filename, range ?? {});
+      if (res?.partial) {
+        // Say exactly what was taken and what is left, rather than letting the user
+        // assume a 211-page book is on its way.
+        const key = res.remaining_pages > 0 ? "queued" : "queuedFinal";
+        toast(t(`convert.partial.${key}`, {
+          filename,
+          start: res.start_page,
+          end: res.end_page,
+          remaining: res.remaining_pages,
+        }), { icon: "📄" });
+        // The batch file carries the status and the clock from here on.
+        delete processingStart.current[filename];
+        await loadDocs();
+        await loadProgress();
+      } else {
+        setDocs((prev) => prev.map((d) => d.filename === filename ? { ...d, status: "processing" } : d));
+      }
       emitUsageChanged();
     } catch (err) {
       delete processingStart.current[filename];
@@ -307,7 +392,12 @@ function ConvertPage() {
   const handleDelete = async (filename) => {
     try {
       await deleteDocument(filename);
-      setDocs((prev) => prev.filter((d) => d.filename !== filename));
+      // Deleting a document takes its batches with it server-side, so reload
+      // rather than filtering one row out of a stale list.
+      setDocs((prev) => prev.filter(
+        (d) => d.filename !== filename && parsePart(d.filename)?.source !== filename
+      ));
+      loadProgress();
       setCheckedFiles((prev) => { const s = new Set(prev); s.delete(filename); return s; });
       if (selectedFile === filename) { if (previewUrl) URL.revokeObjectURL(previewUrl); setSelectedFile(null); setPreviewUrl(null); }
       toast.success(t("convert.toasts.deleted"));
@@ -331,11 +421,18 @@ function ConvertPage() {
   };
 
   const bulkConvert = async () => {
-    const targets = [...checkedFiles].filter((fn) => {
-      const doc = docs.find((d) => d.filename === fn);
-      return doc && (doc.status === "pending" || doc.status === "failed");
-    });
-    await Promise.all(targets.map((fn) => handleConvert(fn)));
+    const targets = [...checkedFiles]
+      .map((fn) => rootDocs.find((d) => d.filename === fn))
+      .filter((doc) => doc && ["pending", "failed", "partial"].includes(effectiveStatus(doc)));
+    // Each click takes the next batch of a long document, so a bulk convert moves
+    // every selected document one batch forward rather than pretending to finish it.
+    await Promise.all(targets.map((doc) => {
+      const prog = progress[doc.filename];
+      const range = prog?.next_start_page != null && prog.total_pages > prog.max_doc_pages
+        ? { startPage: prog.next_start_page, endPage: prog.next_end_page }
+        : undefined;
+      return handleConvert(doc.filename, range);
+    }));
     setCheckedFiles(new Set());
   };
 
@@ -346,8 +443,8 @@ function ConvertPage() {
   };
 
   const hasConvertable = [...checkedFiles].some((fn) => {
-    const doc = docs.find((d) => d.filename === fn);
-    return doc && (doc.status === "pending" || doc.status === "failed");
+    const doc = rootDocs.find((d) => d.filename === fn);
+    return doc && ["pending", "failed", "partial"].includes(effectiveStatus(doc));
   });
 
   if (authLoading) return null;
@@ -389,8 +486,8 @@ function ConvertPage() {
           <div>
             {/* List header row: label + search */}
             <div className="flex items-center justify-between gap-3 mb-3">
-              <p className="section-label">{t("convert.yourFiles")}{!loadingDocs && docs.length > 0 && ` (${docs.length})`}</p>
-              {docs.length > 0 && (
+              <p className="section-label">{t("convert.yourFiles")}{!loadingDocs && rootDocs.length > 0 && ` (${rootDocs.length})`}</p>
+              {rootDocs.length > 0 && (
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-400 pointer-events-none" />
                   <input
@@ -412,7 +509,7 @@ function ConvertPage() {
 
             <div className="border border-zinc-200 dark:border-zinc-800">
               {/* Column headers (sortable) */}
-              {!loadingDocs && docs.length > 0 && (
+              {!loadingDocs && rootDocs.length > 0 && (
                 <div className="grid grid-cols-[1.5rem_1fr_auto_auto] gap-3 items-center px-4 py-2 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
                   <button onClick={toggleCheckAll} className="flex items-center justify-center text-zinc-300 dark:text-zinc-700 hover:text-indigo-500 transition-colors">
                     {checkedFiles.size > 0 && checkedFiles.size === filteredDocs.length
@@ -443,7 +540,7 @@ function ConvertPage() {
                 </>
               )}
 
-              {!loadingDocs && docs.length === 0 && !uploadProgress && (
+              {!loadingDocs && rootDocs.length === 0 && !uploadProgress && (
                 <div className="px-4 py-14 flex flex-col items-center text-center">
                   <FileText className="w-7 h-7 text-zinc-300 dark:text-zinc-700 mb-3" />
                   <p className="text-sm font-medium mb-1">{t("convert.empty.title")}</p>
@@ -453,7 +550,7 @@ function ConvertPage() {
                 </div>
               )}
 
-              {!loadingDocs && filteredDocs.length === 0 && docs.length > 0 && (
+              {!loadingDocs && filteredDocs.length === 0 && rootDocs.length > 0 && (
                 <div className="px-4 py-10 text-center">
                   <p className="text-sm text-zinc-400">No files match "{searchQuery}"</p>
                   <button onClick={() => setSearchQuery("")} className="text-xs text-indigo-500 hover:underline mt-1">Clear filter</button>
@@ -463,18 +560,41 @@ function ConvertPage() {
               {!loadingDocs && filteredDocs.length > 0 && (
                 <ul>
                   {filteredDocs.map((doc) => {
+                    const parts       = partsByParent[doc.filename] ?? [];
+                    const prog        = progress[doc.filename];
+                    const status      = effectiveStatus(doc);
                     const isConverting = converting.has(doc.filename);
-                    const busy        = isConverting || doc.status === "processing";
+                    const busy        = isConverting || status === "processing";
                     const isSelected  = selectedFile === doc.filename;
                     const isChecked   = checkedFiles.has(doc.filename);
-                    const elapsed     = elapsedTimes[doc.filename];
+                    const elapsed     = elapsedTimes[doc.filename]
+                      ?? elapsedTimes[parts.find((p) => p.doc.status === "processing")?.doc.filename];
+                    // Documents longer than the plan's per-document limit go through
+                    // in batches; the row has to show how far through it is.
+                    const batched     = !!prog?.total_pages
+                      && (prog.total_pages > prog.max_doc_pages || parts.length > 0);
+                    const nextStart   = prog?.next_start_page;
+                    const nextEnd     = prog?.next_end_page;
+                    const failedPart  = parts.find((p) => p.doc.status === "failed");
+                    // A failed batch is retried at its own range; otherwise the button
+                    // takes the next run of pages that has not been converted yet.
+                    const nextRange   = !batched
+                      ? undefined
+                      : failedPart
+                      ? { startPage: failedPart.start, endPage: failedPart.end }
+                      : nextStart != null
+                      ? { startPage: nextStart, endPage: nextEnd }
+                      : null;
+                    const canConvert  = batched
+                      ? nextRange != null
+                      : status === "pending" || status === "failed";
 
                     return (
-                      <li
-                        key={doc.filename}
+                      <li key={doc.filename} className="border-b border-zinc-100 dark:border-zinc-800 last:border-0">
+                      <div
                         onClick={() => handleSelect(doc.filename)}
                         className={[
-                          "group flex items-center gap-3 px-4 py-3 border-b border-zinc-100 dark:border-zinc-800 last:border-0 cursor-pointer transition-colors",
+                          "group flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors",
                           isSelected
                             ? "bg-indigo-50/60 dark:bg-indigo-500/8 border-l-2 border-l-indigo-500 !pl-[14px]"
                             : isChecked
@@ -499,12 +619,26 @@ function ConvertPage() {
                           </div>
                           <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5 ml-5">
                             {(doc.size / 1024).toFixed(1)} KB
+                            {batched && (
+                              <span className="ml-2">
+                                ·{" "}
+                                {prog.converted_pages === 0
+                                  ? t("convert.partial.plan", {
+                                      total: prog.total_pages, batch: prog.max_doc_pages,
+                                    })
+                                  : prog.remaining_pages === 0
+                                  ? t("convert.partial.complete", { total: prog.total_pages })
+                                  : t("convert.partial.progress", {
+                                      converted: prog.converted_pages, total: prog.total_pages,
+                                    })}
+                              </span>
+                            )}
                           </p>
                         </div>
 
                         {/* Status */}
                         <div className="shrink-0">
-                          <StatusText status={doc.status} elapsed={elapsed} />
+                          <StatusText status={status} elapsed={elapsed} />
                         </div>
 
                         {/* Date */}
@@ -514,34 +648,38 @@ function ConvertPage() {
 
                         {/* Actions */}
                         <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-                          {doc.status === "pending" && (
-                            <button onClick={() => handleConvert(doc.filename)} disabled={busy} className="btn-primary text-xs px-2.5 py-1 gap-1">
+                          {canConvert && (
+                            <button
+                              onClick={() => handleConvert(doc.filename, nextRange ?? undefined)}
+                              disabled={busy}
+                              className={status === "failed" ? "btn-secondary text-xs px-2.5 py-1 gap-1" : "btn-primary text-xs px-2.5 py-1 gap-1"}
+                            >
                               {isConverting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
-                              {t("convert.actions.convert")}
+                              {status === "failed"
+                                ? t("convert.actions.retry")
+                                : nextRange
+                                ? t("convert.partial.convertNext", {
+                                    start: nextRange.startPage, end: nextRange.endPage,
+                                  })
+                                : t("convert.actions.convert")}
                             </button>
                           )}
-                          {doc.status === "failed" && (
-                            <>
-                              <button onClick={() => handleConvert(doc.filename)} disabled={busy} className="btn-secondary text-xs px-2.5 py-1 gap-1">
-                                {isConverting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
-                                {t("convert.actions.retry")}
-                              </button>
-                              {/* The one place a broken conversion can be reported while
-                                  the user still has the failing document in front of them. */}
-                              <button
-                                onClick={() =>
-                                  openFeedback({
-                                    category: "bug",
-                                    page: `/convert (failed: ${doc.filename})`,
-                                  })
-                                }
-                                className="text-xs font-medium px-2 py-1 text-zinc-400 hover:text-indigo-500 transition-colors"
-                              >
-                                {t("convert.actions.reportProblem")}
-                              </button>
-                            </>
+                          {status === "failed" && (
+                            /* The one place a broken conversion can be reported while
+                               the user still has the failing document in front of them. */
+                            <button
+                              onClick={() =>
+                                openFeedback({
+                                  category: "bug",
+                                  page: `/convert (failed: ${doc.filename})`,
+                                })
+                              }
+                              className="text-xs font-medium px-2 py-1 text-zinc-400 hover:text-indigo-500 transition-colors"
+                            >
+                              {t("convert.actions.reportProblem")}
+                            </button>
                           )}
-                          {doc.status === "done" && (
+                          {status === "done" && parts.length === 0 && (
                             <button onClick={() => handleDownload(doc.filename)}
                               className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors"
                               style={{ borderRadius: 2 }}>
@@ -554,6 +692,40 @@ function ConvertPage() {
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
+                      </div>
+
+                      {/* Batches. Each one is a Word file of its own — that is what
+                          keeps a second range from overwriting the first. */}
+                      {parts.length > 0 && (
+                        <div className="px-4 pb-3 ml-5 flex flex-wrap items-center gap-1.5">
+                          {parts.map(({ start, end, doc: part }) => (
+                            <span key={part.filename}
+                              className="inline-flex items-center gap-1.5 text-xs px-2 py-1 border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900">
+                              <span className="tabular-nums text-zinc-500 dark:text-zinc-400">
+                                {t("convert.partial.pages", { start, end })}
+                              </span>
+                              {part.status === "done" ? (
+                                <button onClick={() => handleDownload(part.filename)}
+                                  className="inline-flex items-center gap-1 font-medium text-emerald-700 dark:text-emerald-400 hover:underline">
+                                  <Download className="w-3 h-3" />
+                                  {t("convert.actions.downloadDocx")}
+                                </button>
+                              ) : part.status === "failed" ? (
+                                <button onClick={() => handleConvert(doc.filename, { startPage: start, endPage: end })}
+                                  className="inline-flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400 hover:underline">
+                                  <Zap className="w-3 h-3" />
+                                  {t("convert.actions.retry")}
+                                </button>
+                              ) : (
+                                <StatusText status={part.status} elapsed={elapsedTimes[part.filename]} />
+                              )}
+                            </span>
+                          ))}
+                          <span className="text-xs text-zinc-400 dark:text-zinc-600">
+                            {t("convert.partial.hint")}
+                          </span>
+                        </div>
+                      )}
                       </li>
                     );
                   })}

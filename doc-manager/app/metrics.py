@@ -24,7 +24,12 @@ log = logging.getLogger("doc-manager.metrics")
 OCR_REQUESTS = Counter(
     "ocr_requests",
     "OCR document tasks processed by the worker, by outcome",
-    ["status", "mode"],  # status: success|error, mode: ocr|trial
+    # status: success|error|empty, mode: ocr|trial
+    # "empty" is a task the pipeline completed without producing readable text
+    # (an image-only scan). It is a failure for the user, but not a crash — keeping
+    # it out of "error" is what makes "we shipped blank documents" separable from
+    # "the pipeline is down" on the dashboard.
+    ["status", "mode"],
 )
 OCR_REQUEST_DURATION = Histogram(
     "ocr_request_duration_seconds",
@@ -94,8 +99,21 @@ TRIAL_REJECTIONS = Counter(
     ["reason"],  # rate_limited|too_large|invalid_pdf
 )
 TRIAL_DOWNLOADS = Counter("textara_trial_downloads", "Trial results downloaded")
+DOWNLOADS = Counter(
+    "textara_downloads",
+    "Converted files actually downloaded — the moment value is delivered, which\n    went uncounted while every step before it was instrumented",
+    ["kind"],  # docx|pdf
+)
 ENQUEUE_FAILURES = Counter(
     "textara_enqueue_failures", "Conversions that could not be queued (RabbitMQ)", ["mode"]
+)
+CONVERSION_NOTIFICATIONS = Counter(
+    "textara_conversion_notifications",
+    "Conversion-finished notifications the worker handed to auth-service",
+    # sent: auth-service accepted it. skipped: nothing to send (trial owner, job
+    # under NOTIFY_MIN_SECONDS, or the feature is unconfigured). failed: the
+    # callback errored — the conversion itself is unaffected.
+    ["outcome"],
 )
 
 
@@ -133,10 +151,17 @@ for _mode in ("ocr", "trial"):
     ENQUEUE_FAILURES.labels(mode=_mode)
     OCR_REQUESTS.labels(status="success", mode=_mode)
     OCR_REQUESTS.labels(status="error", mode=_mode)
+    OCR_REQUESTS.labels(status="empty", mode=_mode)
     OCR_PAGES.labels(mode=_mode)
+
+for _outcome in ("sent", "skipped", "failed"):
+    CONVERSION_NOTIFICATIONS.labels(outcome=_outcome)
 
 for _outcome in ("ok", "failed"):
     REFUNDS.labels(outcome=_outcome)
+
+for _kind in ("docx", "pdf", "other"):
+    DOWNLOADS.labels(kind=_kind)
 
 for _reason in ("rate_limited", "too_large", "invalid_pdf"):
     TRIAL_REJECTIONS.labels(reason=_reason)

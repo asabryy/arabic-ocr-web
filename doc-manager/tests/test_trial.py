@@ -1,5 +1,6 @@
 import io
 
+from app.core.config import settings
 from tests.conftest import make_pdf
 
 BASE = "/api/doc-manager/v1/trial"
@@ -102,3 +103,21 @@ def test_trial_publish_failure_cleans_up(client, monkeypatch, storage):
         for f in os.listdir(os.path.join(trial_root, d))
     ]
     assert leftovers == []
+
+
+def test_trial_reports_real_plan_limits(client):
+    """The widget's closing pitch is driven by the deployed limits.
+
+    It used to offer "convert the whole document" for a free account, which no plan
+    delivers in one go; the numbers it needs to say something true come from here.
+    """
+    r = client.post(BASE, files={"file": ("book.pdf", make_pdf(6), "application/pdf")})
+    assert r.status_code == 202, r.text
+    body = r.json()
+    assert body["free_max_doc_pages"] == settings.PLAN_FREE_MAX_DOC_PAGES
+    assert body["free_daily_pages"] == settings.PLAN_FREE_DAILY_PAGES
+    assert body["pro_max_doc_pages"] == settings.PLAN_PRO_MAX_DOC_PAGES
+    assert body["pro_daily_pages"] == settings.PLAN_PRO_DAILY_PAGES
+
+    status = client.get(f"{BASE}/{body['trial_id']}/status").json()
+    assert status["free_max_doc_pages"] == settings.PLAN_FREE_MAX_DOC_PAGES

@@ -1,8 +1,11 @@
+import html
 import io
 import json
 import logging
+import re
 import threading
 import time
+import zipfile
 
 import pika
 import requests
@@ -62,6 +65,120 @@ def _call_http(pdf_bytes: bytes, max_pages: int | None = None) -> bytes:
     return resp.content
 
 
+class EmptyOcrResult(Exception):
+    """The pipeline finished, but produced a document with nothing readable in it.
+
+    Raised, not returned, so the blank case lands on the same recovery path as a
+    crash (status failed + quota refund) while still being counted separately.
+    """
+
+    def __init__(self, visible_chars: int, docx_bytes: int):
+        super().__init__(f"{visible_chars} visible character(s) in {docx_bytes} bytes of DOCX")
+        self.visible_chars = visible_chars
+        self.docx_bytes = docx_bytes
+
+
+# Text nodes in an OOXML document, and the separator the DOCX builder writes between
+# pages ("-- Page 2 --"). The separator is chrome, not content: three image-only pages
+# used to yield a file whose entire text was "-- Page 2 ---- Page 3 --". The pattern is
+# deliberately loose (any dash/underscore/hash padding, "Page" or "صفحة") so a cosmetic
+# change to that separator cannot quietly turn it back into "content".
+_W_T_RE = re.compile(rb"<w:t(?:\s[^>]*)?>(.*?)</w:t>", re.DOTALL)
+_PAGE_MARKER_RE = re.compile(
+    r"^[\s\-–—_*=#.]*(?:page|صفحة)\s*\d+\s*[\s\-–—_*=#.]*$", re.IGNORECASE
+)
+
+
+def _docx_visible_chars(docx_bytes: bytes) -> int | None:
+    """Count the non-whitespace characters a reader would actually see in a DOCX.
+
+    Reads ``word/document.xml`` out of the zip rather than asking the OCR pipeline how
+    much text it found: the file the user downloads is the only thing that matters, and
+    this stays correct no matter how ``process_pdf`` is restructured internally — its
+    public contract is "PDF bytes in, DOCX bytes out" and that is all this relies on.
+
+    Returns ``None`` when the bytes are not a readable DOCX. Unreadable output is a
+    different bug, and guessing "empty" there would fail conversions that are fine.
+    """
+    try:
+        with zipfile.ZipFile(io.BytesIO(docx_bytes)) as zf:
+            xml = zf.read("word/document.xml")
+    except (zipfile.BadZipFile, KeyError, OSError, ValueError):
+        return None
+
+    total = 0
+    for raw in _W_T_RE.findall(xml):
+        text = html.unescape(raw.decode("utf-8", "replace")).strip()
+        if not text or _PAGE_MARKER_RE.match(text):
+            continue
+        total += len("".join(text.split()))
+    return total
+
+
+def _notify_conversion_finished(
+    user_id: str,
+    file_id: str,
+    outcome: str,
+    elapsed_s: float,
+    *,
+    pages: int | None = None,
+    reason: str | None = None,
+) -> None:
+    """Best-effort "your conversion finished" email, via auth-service.
+
+    Cross-service shape: the worker POSTs a *user id* and an outcome to an internal
+    auth-service endpoint, which owns the users table and the mail provider. Chosen
+    over calling Resend from here because (a) doc-manager has no email column in its
+    partial mirror of ``users`` and no mail credentials, and duplicating both is how
+    two senders drift, and (b) an endpoint that takes a user id — never an address —
+    cannot be turned into an open relay even if its shared key leaks.
+
+    Every failure mode is swallowed. A conversion that succeeded stays succeeded; the
+    worst a broken notifier can do is burn NOTIFY_TIMEOUT_S and bump a counter.
+    """
+    try:
+        uid = str(user_id)
+        if uid.startswith("trial/") or not uid.isdigit():
+            # Anonymous trial: no account, no address, nothing to send to.
+            metrics.CONVERSION_NOTIFICATIONS.labels(outcome="skipped").inc()
+            return
+        if not settings.NOTIFY_URL or not settings.NOTIFY_API_KEY:
+            metrics.CONVERSION_NOTIFICATIONS.labels(outcome="skipped").inc()
+            return
+        if elapsed_s < settings.NOTIFY_MIN_SECONDS:
+            # Short job: the Convert page is almost certainly still open and has
+            # already shown the result. Mailing here is what turns a five-document
+            # session into five emails.
+            metrics.CONVERSION_NOTIFICATIONS.labels(outcome="skipped").inc()
+            logger.info(
+                "No notification for file=%s user=%s: %.0fs is under the %.0fs threshold",
+                file_id, uid, elapsed_s, settings.NOTIFY_MIN_SECONDS,
+            )
+            return
+
+        resp = requests.post(
+            settings.NOTIFY_URL,
+            json={
+                "user_id": int(uid),
+                "filename": file_id,
+                "outcome": outcome,
+                "pages": pages,
+                "duration_seconds": round(elapsed_s, 1),
+                "reason": reason,
+            },
+            headers={"X-Internal-Key": settings.NOTIFY_API_KEY},
+            timeout=settings.NOTIFY_TIMEOUT_S,
+        )
+        resp.raise_for_status()
+        metrics.CONVERSION_NOTIFICATIONS.labels(outcome="sent").inc()
+        logger.info("Notified user %s that file=%s finished (%s)", uid, file_id, outcome)
+    except Exception as e:  # noqa: BLE001 — notification must never fail the task
+        metrics.CONVERSION_NOTIFICATIONS.labels(outcome="failed").inc()
+        logger.warning(
+            "Could not notify user %s about file=%s (%s): %s", user_id, file_id, outcome, e
+        )
+
+
 def _refund_pages(user_id: str, pages: int | None, reserved_day: str | None = None) -> None:
     """Give a failed conversion's reserved pages back to the user's daily quota.
 
@@ -119,6 +236,8 @@ def process_task(task: dict, redelivered: bool = False) -> None:
         file_id, user_id, mode, OCR_BACKEND, max_pages,
     )
     t0 = time.perf_counter()
+    outcome = "failed"
+    reason: str | None = None
 
     try:
         # ── Fetch PDF from storage (R2 presigned URL, or a local path in dev) ──
@@ -139,6 +258,21 @@ def process_task(task: dict, redelivered: bool = False) -> None:
         else:
             docx_bytes = _call_gemini(pdf_bytes, max_pages, mode)
 
+        # ── Blank-output guard ──────────────────────────────────────────────
+        # An image-only scan makes every page come back empty, and an empty DOCX is
+        # still a valid ~36KB file. Reporting that as "done" spends the user's quota
+        # on a Word document with zero readable characters — the single most likely
+        # way for someone to conclude the product is broken. Check before saving so
+        # no blank artefact is stored at all.
+        #
+        # The rule is document-wide, not per page, and that is the whole point: a
+        # title page, a blank verso or a full-page figure in the middle of a book is
+        # normal and must not throw away the 39 good pages around it. What is never
+        # legitimate is a document in which *nothing* was recognised.
+        visible = _docx_visible_chars(docx_bytes)
+        if visible is not None and visible < settings.OCR_MIN_OUTPUT_CHARS:
+            raise EmptyOcrResult(visible, len(docx_bytes))
+
         # ── Save DOCX back to storage ───────────────────────────────────────
         stem = file_id.rsplit(".", 1)[0]
         docx_filename = f"{stem}.docx"
@@ -147,16 +281,43 @@ def process_task(task: dict, redelivered: bool = False) -> None:
 
         storage.set_status(user_id, file_id, "done")
         logger.info("file=%s marked as done", file_id)
+        outcome = "done"
         metrics.OCR_REQUESTS.labels(status="success", mode=mode).inc()
         metrics.OCR_REQUEST_DURATION.labels(mode=mode).observe(time.perf_counter() - t0)
+
+    except EmptyOcrResult as e:
+        # Counted as "empty", not "error": from the dashboard, "we are handing back
+        # blank documents" and "the pipeline is throwing" need to be separable.
+        # NB: the literal "Failed to process file=" text is matched by a Grafana/Loki
+        # panel, so this stays on that panel too — it is a failed conversion.
+        logger.error(
+            "Failed to process file=%s: no readable text. %d visible character(s) "
+            "(minimum %d) in %d bytes of DOCX; user=%s mode=%s max_pages=%s "
+            "reserved_pages=%s pdf_bytes=%d. Likely an image-only scan or a total "
+            "OCR miss — refusing to report a blank document as done.",
+            file_id, e.visible_chars, settings.OCR_MIN_OUTPUT_CHARS, e.docx_bytes,
+            user_id, mode, max_pages, pages, len(pdf_bytes),
+        )
+        storage.set_status(user_id, file_id, "failed")
+        reason = "no_text"
+        metrics.OCR_REQUESTS.labels(status="empty", mode=mode).inc()
+        metrics.OCR_REQUEST_DURATION.labels(mode=mode).observe(time.perf_counter() - t0)
+        _refund_pages(user_id, pages, task.get("reserved_day"))
 
     except Exception as e:
         # NB: the literal "Failed to process file=" text is matched by a Grafana/Loki panel.
         logger.error("Failed to process file=%s: %s", file_id, e, exc_info=True)
         storage.set_status(user_id, file_id, "failed")
+        reason = "error"
         metrics.OCR_REQUESTS.labels(status="error", mode=mode).inc()
         metrics.OCR_REQUEST_DURATION.labels(mode=mode).observe(time.perf_counter() - t0)
         _refund_pages(user_id, pages, task.get("reserved_day"))
+
+    # Deliberately outside every handler: a conversion that succeeded must stay
+    # succeeded, so nothing raised in here can reach the "failed" path above.
+    _notify_conversion_finished(
+        user_id, file_id, outcome, time.perf_counter() - t0, pages=pages, reason=reason,
+    )
 
 
 def _connect() -> pika.BlockingConnection:

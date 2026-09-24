@@ -27,8 +27,34 @@ export const deleteDocument = async (filename) => {
   return res.data;
 };
 
-export const convertDocument = async (filename) => {
-  const res = await docApi.post("/convert", null, { params: { filename } });
+/**
+ * Queue a conversion.
+ *
+ * With no range, a document inside the plan's per-document limit is converted
+ * whole; a longer one converts its next unconverted batch, and the response says
+ * which pages were taken (`start_page`/`end_page`), what is left
+ * (`remaining_pages`), where to resume (`next_start_page`) and which Word file it
+ * will land in (`output_filename`).
+ */
+export const convertDocument = async (filename, { startPage, endPage } = {}) => {
+  const params = { filename };
+  if (startPage != null) params.start_page = startPage;
+  if (endPage != null) params.end_page = endPage;
+  const res = await docApi.post("/convert", null, { params });
+  return res.data;
+};
+
+/**
+ * Which pages of each document have already been converted, and where to pick up.
+ * The ranges live on the server, so "continue from page 41" survives a reload.
+ * {items: [{filename, total_pages, converted_pages, remaining_pages, ranges,
+ *           next_start_page, next_end_page, max_doc_pages, partial}],
+ *  max_doc_pages, plan}
+ */
+export const fetchConversionProgress = async (filename) => {
+  const res = await docApi.get("/conversion-progress", {
+    params: filename ? { filename } : undefined,
+  });
   return res.data;
 };
 
