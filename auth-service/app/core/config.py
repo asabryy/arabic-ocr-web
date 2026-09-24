@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     # Admin API — empty disables the /admin routes (they return 404)
     ADMIN_API_KEY: str = ""
 
+    # Shared secret for service-to-service calls from the doc-manager worker
+    # (conversion-finished notifications). Empty disables /internal entirely.
+    INTERNAL_API_KEY: str = ""
+
     # ── Stripe billing ────────────────────────────────────────────────────────
     # Empty STRIPE_SECRET_KEY disables the /billing routes (they return 404), so an
     # unconfigured deployment exposes nothing — same posture as the admin API above.

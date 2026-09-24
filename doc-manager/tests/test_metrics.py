@@ -24,12 +24,17 @@ def test_upload_counts(client):
 
 
 def test_convert_402_counts_quota_rejection(db_client):
-    before = sample("textara_quota_rejections_total", reason="doc_pages_exceeded", plan="free")
+    # An over-long document is no longer refused — it is converted a batch at a
+    # time — so the rejection that remains is the daily budget, which until now had
+    # never fired once in production because the per-document wall came first.
+    before = sample("textara_quota_rejections_total", reason="daily_pages_exceeded", plan="free")
     conv_before = sample("textara_conversions_requested_total", mode="ocr", plan="free")
-    _upload(db_client, "big.pdf", 12)
+    _upload(db_client, "used_up.pdf", 8)
+    assert db_client.post(f"{BASE}/convert?filename=used_up.pdf").status_code == 200
+    _upload(db_client, "big.pdf", 12)  # wants a 10-page batch; only 2 pages left today
     assert db_client.post(f"{BASE}/convert?filename=big.pdf").status_code == 402
-    assert sample("textara_quota_rejections_total", reason="doc_pages_exceeded", plan="free") == before + 1
-    assert sample("textara_conversions_requested_total", mode="ocr", plan="free") == conv_before
+    assert sample("textara_quota_rejections_total", reason="daily_pages_exceeded", plan="free") == before + 1
+    assert sample("textara_conversions_requested_total", mode="ocr", plan="free") == conv_before + 1
 
 
 def test_convert_200_counts_conversion_and_pages(db_client, published):

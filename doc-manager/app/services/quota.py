@@ -6,6 +6,7 @@ lock, concurrent statements serialize on it, and each re-evaluates the WHERE gua
 against the committed value.
 """
 
+import logging
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 
@@ -13,6 +14,9 @@ from sqlalchemy import Engine, select, text
 
 from app.core.config import settings
 from app.db.tables import usage_daily, users
+from app.models.conversion_attempt import conversion_attempts
+
+logger = logging.getLogger("doc-manager.quota")
 
 
 @dataclass(frozen=True)
@@ -108,3 +112,40 @@ def release(engine: Engine, user_id: int, pages: int, day: date | None = None) -
     day = day or today()
     with engine.begin() as conn:
         conn.execute(_RELEASE_SQL, {"uid": user_id, "day": day, "n": pages})
+
+
+def record_attempt(
+    engine: Engine,
+    user_id: int,
+    *,
+    pages: int,
+    outcome: str,
+    plan: str,
+    total_pages: int | None = None,
+    start_page: int | None = None,
+    end_page: int | None = None,
+) -> None:
+    """Persist one /convert decision.
+
+    Best-effort on purpose: this is instrumentation, and a bookkeeping outage must
+    not turn a conversion the user is entitled to into a 500. The failure is logged
+    (and would show up as a gap in the table) rather than propagated.
+    """
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                conversion_attempts.insert().values(
+                    user_id=user_id,
+                    pages=pages,
+                    total_pages=total_pages,
+                    start_page=start_page,
+                    end_page=end_page,
+                    outcome=outcome,
+                    plan=plan,
+                )
+            )
+    except Exception as e:  # noqa: BLE001
+        logger.error(
+            "Could not record conversion attempt (user=%s outcome=%s pages=%s): %s",
+            user_id, outcome, pages, e,
+        )

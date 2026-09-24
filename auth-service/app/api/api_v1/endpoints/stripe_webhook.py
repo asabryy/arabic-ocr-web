@@ -22,6 +22,20 @@ router = APIRouter()
 logger = logging.getLogger("auth-service.webhook")
 
 
+class PaymentModeNotImplemented(RuntimeError):
+    """A one-time payment completed and nothing here can grant anything for it.
+
+    Deliberately fatal. The alternative — acknowledging it — loses a real customer's
+    money silently and unrecoverably.
+    """
+
+    def __init__(self, session_id: str):
+        super().__init__(
+            f"Checkout session {session_id} completed in payment mode, but one-time "
+            "purchases are not implemented. Refusing to acknowledge so Stripe retries."
+        )
+
+
 def _as_dict(value):
     """Deep-convert Stripe SDK objects to plain dicts.
 
@@ -58,6 +72,15 @@ def _subscription_from(event_type: str, obj: dict) -> dict | None:
             return obj
 
     # checkout.session.completed
+    if obj.get("mode") == "payment":
+        # One-time purchases (page packs) are not implemented yet. This MUST raise
+        # rather than return None: the caller has already claimed the event id, and
+        # returning None would commit that claim, answer 200, and leave a completed
+        # payment granting nothing — permanently, since Stripe stops retrying on 200
+        # and the claim makes the event a no-op on replay. Raising rolls the claim
+        # back and Stripe keeps retrying until this is handled.
+        raise PaymentModeNotImplemented(obj.get("id") or "unknown")
+
     if obj.get("mode") != "subscription" or obj.get("payment_status") == "unpaid":
         return None
     sub_id = obj.get("subscription")
@@ -117,7 +140,17 @@ async def stripe_webhook(
         return {"status": "duplicate"}
 
     obj = _as_dict(event["data"]["object"])
-    subscription = _subscription_from(event_type, obj)
+    try:
+        subscription = _subscription_from(event_type, obj)
+    except PaymentModeNotImplemented as ex:
+        # Roll back the event claim so the retry can succeed once packs ship.
+        db.rollback()
+        metrics.STRIPE_EVENTS.labels(type=event_type, outcome="unhandled_mode").inc()
+        logger.error("%s", ex)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Payment-mode checkout is not handled yet.",
+        )
     if subscription is None:
         metrics.STRIPE_EVENTS.labels(type=event_type, outcome="ignored").inc()
         db.commit()  # keep the claim: nothing to do for this one

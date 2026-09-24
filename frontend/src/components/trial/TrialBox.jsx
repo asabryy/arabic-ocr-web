@@ -16,6 +16,12 @@ const TRIAL_MAX_MB = 10;
  *          ├ 429 → limited          (daily trial budget for this IP is spent)
  *          ├ 400 → idle + toast     (not a readable PDF)
  *          └ other / "failed" / timeout → failed
+ *
+ * The closing pitch used to read "247 more pages in this document" directly above
+ * "Sign up free to convert the whole document" — a promise no plan keeps in one
+ * go, made at the exact moment an email address changes hands. It now states what
+ * a free account really does (batches of `free_max_doc_pages`, resuming where it
+ * stopped) using the limits the API reports, not numbers typed into a locale file.
  */
 function TrialBox({ openRegister }) {
   const { t } = useTranslation();
@@ -70,6 +76,13 @@ function TrialBox({ openRegister }) {
   };
 
   const remaining = trial ? Math.max(0, trial.pages_total - trial.max_pages) : 0;
+  // Served by the trial API so the copy tracks the deployed plan limits.
+  const freePerDoc = trial?.free_max_doc_pages ?? 10;
+  const freeDaily = trial?.free_daily_pages ?? 10;
+  const proPerDoc = trial?.pro_max_doc_pages ?? 40;
+  const proDaily = trial?.pro_daily_pages ?? 50;
+  // Only worth naming Pro when the free batch size is genuinely the slow way round.
+  const proWorthMentioning = remaining > freePerDoc;
 
   return (
     <div className="w-full">
@@ -134,11 +147,21 @@ function TrialBox({ openRegister }) {
                 <Download className="w-4 h-4" /> {t("trial.download")}
               </button>
               <div className="border-t border-zinc-100 dark:border-zinc-800 pt-4">
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2">
-                  {remaining > 0
-                    ? t("trial.remainingPages", { count: remaining })
-                    : t("trial.moreDocs")}
-                </p>
+                <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-2 space-y-1">
+                  {remaining > 0 ? (
+                    <>
+                      <p className="text-zinc-600 dark:text-zinc-300">
+                        {t("trial.remainingPages", { count: remaining })}
+                      </p>
+                      <p>{t("trial.afterTrial.free", { perDoc: freePerDoc })}</p>
+                      {proWorthMentioning && (
+                        <p>{t("trial.afterTrial.pro", { perDoc: proPerDoc, daily: proDaily })}</p>
+                      )}
+                    </>
+                  ) : (
+                    <p>{t("trial.moreDocs", { daily: freeDaily })}</p>
+                  )}
+                </div>
                 <button onClick={openRegister} className="btn-secondary w-full justify-center gap-2 py-2 text-sm group">
                   {t("trial.signupCta")}
                   <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5 rtl:rotate-180" />

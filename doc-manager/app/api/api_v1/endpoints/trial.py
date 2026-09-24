@@ -30,6 +30,20 @@ TRIAL_PDF = "document.pdf"
 TRIAL_DOCX = "document.docx"
 
 
+def _plan_facts() -> dict:
+    """What a signed-up account really gets, for the widget's closing pitch.
+
+    Sent with every trial response so the copy after a successful trial is driven by
+    the deployed limits rather than by a number typed into a translation file.
+    """
+    return {
+        "free_max_doc_pages": settings.PLAN_FREE_MAX_DOC_PAGES,
+        "free_daily_pages": settings.PLAN_FREE_DAILY_PAGES,
+        "pro_max_doc_pages": settings.PLAN_PRO_MAX_DOC_PAGES,
+        "pro_daily_pages": settings.PLAN_PRO_DAILY_PAGES,
+    }
+
+
 def _owner(trial_id: str) -> str:
     # Strict id format keeps the storage prefix free of path/key games.
     if not TRIAL_ID_RE.match(trial_id or ""):
@@ -98,6 +112,10 @@ async def start_trial(
         "pages_total": pages_total,
         "max_pages": settings.TRIAL_MAX_PAGES,
         "status": "processing",
+        # The trial's closing pitch used to promise "the whole document" for a free
+        # account, which no plan delivers in one go. The widget needs the real
+        # numbers to say what actually happens next.
+        **_plan_facts(),
     }
 
 
@@ -112,6 +130,7 @@ def trial_status(trial_id: str, storage: FileStorage = Depends(get_storage)):
         "status": storage.get_status(owner, TRIAL_PDF),
         "pages_total": meta.get("pages"),
         "max_pages": meta.get("max_pages", settings.TRIAL_MAX_PAGES),
+        **_plan_facts(),
     }
 
 

@@ -218,3 +218,73 @@ def test_refetch_failure_falls_back_to_the_payload(client, stripe_configured, db
     assert r.status_code == 200
     db.refresh(user)
     assert user.plan == "pro"
+
+
+def payment_session_event(event_id="evt_pay", session_id="cs_pay_1"):
+    """A completed one-time purchase — what a page pack would produce."""
+    return {
+        "id": event_id,
+        "type": "checkout.session.completed",
+        "data": {
+            "object": {
+                "id": session_id,
+                "mode": "payment",
+                "payment_status": "paid",
+                "customer": "cus_1",
+                "client_reference_id": "4",
+                "metadata": {"user_id": "4"},
+            }
+        },
+    }
+
+
+def test_payment_mode_is_refused_not_silently_acknowledged(client, stripe_configured, db, make_user):
+    """A one-time payment must never be answered 200 while granting nothing.
+
+    Stripe stops retrying on 200, and the event claim would make a replay a no-op —
+    so the customer's money would be gone with no recoverable trace.
+    """
+    make_user(customer_id="cus_1")
+    body, headers = signed(payment_session_event())
+    r = client.post(URL, content=body, headers=headers)
+    assert r.status_code == 500, "must not acknowledge a payment it cannot grant"
+
+
+def test_refused_payment_event_can_be_retried_later(client, stripe_configured, db, make_user):
+    """The claim must roll back, or the retry after shipping packs would be skipped
+    as a duplicate and the payment lost anyway."""
+    from app.models.billing import StripeEvent
+
+    make_user(customer_id="cus_1")
+    body, headers = signed(payment_session_event(event_id="evt_retry"))
+    client.post(URL, content=body, headers=headers)
+
+    claimed = db.query(StripeEvent).filter(StripeEvent.event_id == "evt_retry").first()
+    assert claimed is None, "event id must not stay claimed after a refusal"
+
+
+def test_subscription_checkout_is_unaffected(client, stripe_configured, db, make_user):
+    """The guard must not disturb the path that actually works today."""
+    user = make_user(customer_id="cus_1")
+    live = SimpleNamespace(
+        to_dict=lambda: {
+            "id": "sub_1", "status": "active", "customer": "cus_1",
+            "metadata": {}, "items": {"data": [{"price": {"product": "prod_pro"}}]},
+        }
+    )
+    fake = SimpleNamespace(v1=SimpleNamespace(subscriptions=SimpleNamespace(retrieve=lambda _i: live)))
+    import app.api.api_v1.endpoints.stripe_webhook as hook
+
+    event = {
+        "id": "evt_sub_ok",
+        "type": "checkout.session.completed",
+        "data": {"object": {"id": "cs_1", "mode": "subscription",
+                            "payment_status": "paid", "subscription": "sub_1",
+                            "customer": "cus_1", "metadata": {"user_id": str(user.id)}}},
+    }
+    with patch.object(hook, "get_stripe", lambda: fake):
+        body, headers = signed(event)
+        r = client.post(URL, content=body, headers=headers)
+    assert r.status_code == 200
+    db.refresh(user)
+    assert user.plan == "pro"

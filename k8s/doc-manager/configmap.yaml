@@ -32,3 +32,7 @@ data:
   OCR_429_MAX_DELAY_S: "60"
   GEMINI_PRICE_INPUT_USD_PER_M: "0.75"
   GEMINI_PRICE_OUTPUT_USD_PER_M: "3.75"
+  # Conversion-finished notifications. The worker posts a user id (never an
+  # address) to auth-service, which owns the mail credentials and the users table.
+  NOTIFY_URL: "http://auth-service:8000/api/auth/v1/internal/notifications/conversion"
+  NOTIFY_MIN_SECONDS: "120"

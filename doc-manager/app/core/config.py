@@ -43,8 +43,40 @@ class Settings(BaseSettings):
     GEMINI_PRICE_INPUT_USD_PER_M: float = 0.75
     GEMINI_PRICE_OUTPUT_USD_PER_M: float = 3.75
 
+    # DOCX output. The font is written to w:ascii/w:hAnsi AND to w:cs (complex script) —
+    # Word lays Arabic out from the complex-script side, so a font set only on the Latin
+    # side silently falls back to Word's default. Same for the size (w:sz + w:szCs).
+    DOCX_FONT: str = "Arial"
+    DOCX_FONT_SIZE_PT: float = 12.0
+    DOCX_FOOTNOTE_SIZE_PT: float = 9.0
+
     # Worker /metrics endpoint (scraped by Prometheus via pod annotations); 0 disables
     WORKER_METRICS_PORT: int = 9100
+
+    # ── Blank-output guard ────────────────────────────────────────────────────
+    # An image-only scan makes the OCR pipeline return empty page text, and an
+    # empty DOCX is still a ~36KB valid file — so the task used to be reported as
+    # "done" with the user's quota spent and not one readable character inside.
+    # Below this many visible non-whitespace characters *in the whole document*
+    # the conversion is failed and refunded instead. Ten characters is roughly two
+    # Arabic words: every page a human would call "converted" clears it, while the
+    # single-glyph artifacts a blank scan produces (".", "-", "…", a stray digit)
+    # do not. Document-wide, never per page — see _docx_visible_chars().
+    OCR_MIN_OUTPUT_CHARS: int = 10
+
+    # ── Conversion-finished notification ──────────────────────────────────────
+    # The worker POSTs the *user id* and outcome to auth-service, which owns the
+    # email seam and the users table; doc-manager never sees an email address and
+    # holds no mail credentials. Empty URL or key disables notification entirely.
+    NOTIFY_URL: str = ""      # e.g. http://auth-service/api/auth/v1/internal/notifications/conversion
+    NOTIFY_API_KEY: str = ""  # must equal auth-service's INTERNAL_API_KEY
+    # Only notify jobs slower than this. Below it the user is almost certainly
+    # still watching the Convert page (it polls while mounted) and already saw the
+    # result; mailing them would turn a five-document session into five emails.
+    # Bench data is 3-9 s/page, so 120s is about a 15-40 page document — the size
+    # at which people tab away.
+    NOTIFY_MIN_SECONDS: float = 120.0
+    NOTIFY_TIMEOUT_S: float = 5.0
 
     # Database — shared with auth-service (reads users.plan, reads/writes usage_daily).
     # Empty => quota-gated endpoints (/convert, /usage) return 503.
