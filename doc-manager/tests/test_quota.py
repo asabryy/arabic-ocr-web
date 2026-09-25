@@ -92,3 +92,20 @@ def test_release_targets_the_reservation_day_not_today(db):
 
     assert quota.used_today(db, 1) == 10, "today's counter must be untouched"
     assert quota.used_today(db, 1, day=yesterday) == 0
+
+
+def test_unlimited_tier_is_recognised():
+    """limits_for() falls through to FREE for unknown plans, so a tier added to the
+    schema but not here would silently give a comped account *less* than Pro."""
+    u = quota.limits_for("unlimited")
+    pro = quota.limits_for("pro")
+    assert u.plan == "unlimited"
+    assert u.daily_pages > pro.daily_pages
+    assert u.max_doc_pages > pro.max_doc_pages
+
+
+def test_an_unknown_plan_still_falls_back_to_free():
+    """The fall-through is the safety property: a typo must never grant pages."""
+    assert quota.limits_for("ulimited").plan == "free"
+    assert quota.limits_for("PRO").plan == "free"
+    assert quota.limits_for(None).plan == "free"

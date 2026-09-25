@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
-import { PLAN_PRO } from "../constants/plans";
+import { isPaidPlan } from "../constants/plans";
 
 // Stripe redirects here the moment checkout completes, but the plan is granted by the
 // webhook, which may land a beat later. So poll /users/me rather than trusting the
@@ -15,7 +15,7 @@ function BillingSuccess() {
   const { t } = useTranslation();
   const { user, login } = useAuth();
   const [timedOut, setTimedOut] = useState(false);
-  const isPro = user?.plan === PLAN_PRO;
+  const isPro = isPaidPlan(user?.plan);
 
   // A ref, not a local: `login` identity changes re-run this effect, which used to
   // reset a local counter to zero every tick — so MAX_POLLS was unreachable and a

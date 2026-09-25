@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Check } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
-import { PLAN_PRO } from "../constants/plans";
+import { PLAN_PRO, isPaidPlan } from "../constants/plans";
 import { useUpgrade } from "../hooks/useUpgrade";
 
 const PLANS = [
@@ -21,7 +21,9 @@ function PlanCta({ plan, user, openRegister }) {
   const { t } = useTranslation();
   const { startUpgrade, loading, error } = useUpgrade();
   const cls = plan.accent ? "btn-primary justify-center py-2.5" : "btn-secondary justify-center py-2.5";
-  const currentPlan = user?.plan === PLAN_PRO ? PLAN_PRO : "free";
+  // A comped account already has more than Pro; show Pro as current rather than
+  // inviting them to buy a downgrade.
+  const currentPlan = isPaidPlan(user?.plan) ? PLAN_PRO : "free";
 
   if (!user) {
     return (

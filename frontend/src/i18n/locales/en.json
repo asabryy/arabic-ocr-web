@@ -224,12 +224,14 @@
     "free": "Free",
     "pro": "Pro",
     "current": "Current plan",
-    "upgrade": "Upgrade"
+    "upgrade": "Upgrade",
+    "unlimited": "Unlimited"
   },
   "usage": {
     "today": "{{used}} / {{limit}} pages today",
     "resets": "Resets at midnight UTC",
-    "perDoc": "Max {{limit}} pages per document"
+    "perDoc": "Max {{limit}} pages per document",
+    "unlimited": "{{used}} pages today · unlimited"
   },
   "limits": {
     "title": "Plan limit reached",

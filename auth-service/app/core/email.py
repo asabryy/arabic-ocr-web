@@ -295,3 +295,51 @@ def send_conversion_complete_email(
         subject=subject,
         html_body=_wrap(heading, body, button, url),
     )
+
+
+# How each tier is described to the person receiving it. Kept here rather than
+# interpolating a raw plan string, so nobody is ever emailed the word "unlimited"
+# for a tier that quota.limits_for() does not actually recognise.
+_PLAN_COPY = {
+    "unlimited": (
+        "Unlimited access",
+        "Your account now converts without the usual daily or per-document page "
+        "limits. Upload a whole book and it will go through in one go.",
+    ),
+    "pro": (
+        "You're on Pro",
+        "Your account now has the higher Pro limits: more pages per day and larger "
+        "documents in a single conversion.",
+    ),
+    "free": (
+        "Your plan has changed",
+        "Your account is now on the Free plan, with its standard daily and "
+        "per-document page limits.",
+    ),
+}
+
+
+def send_plan_changed_email(to_email: str, plan: str, *, name: str | None = None) -> None:
+    """Tell someone their account tier changed.
+
+    Sent only when an operator asks for it (admin PUT with notify=true). Plan changes
+    driven by Stripe are not announced here — Stripe already emails its own receipts,
+    and duplicating them would be worse than silence.
+    """
+    heading, body_text = _PLAN_COPY.get(plan, _PLAN_COPY["free"])
+    greeting = f"<p style=\"margin:0 0 12px\">{html.escape(name)},</p>" if name else ""
+    body = (
+        f"{greeting}"
+        f'<p style="margin:0">{html.escape(body_text)}</p>'
+    )
+    url = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/convert"
+    _send(
+        kind="plan_changed",
+        to=to_email,
+        subject=heading,
+        html_body=_wrap(heading, body, "Start converting", url),
+    )
+
+
+for _outcome in ("sent", "failed", "skipped"):
+    metrics.EMAILS_SENT.labels(kind="plan_changed", outcome=_outcome)

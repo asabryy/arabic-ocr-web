@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "../auth/AuthContext";
 import { updateCurrentUser, resendVerificationEmail } from "../features/auth/authservice";
 import { createPortalSession } from "../api/billing";
-import { PLAN_PRO } from "../constants/plans";
+import { PLAN_PRO, PLAN_UNLIMITED, isPaidPlan } from "../constants/plans";
 import { useUpgrade } from "../hooks/useUpgrade";
 
 function SettingsPage() {
@@ -134,14 +134,14 @@ function SettingsPage() {
               <p className="text-sm text-zinc-700 dark:text-zinc-300">
                 {t("billing.currentPlan")}{" "}
                 <span className="font-semibold">
-                  {user?.plan === PLAN_PRO ? t("plans.pro") : t("plans.free")}
+                  {t(`plans.${user?.plan === PLAN_UNLIMITED ? "unlimited" : user?.plan === PLAN_PRO ? "pro" : "free"}`)}
                 </span>
               </p>
               <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
-                {user?.plan === PLAN_PRO ? t("billing.manageHint") : t("billing.upgradeHint")}
+                {isPaidPlan(user?.plan) ? t("billing.manageHint") : t("billing.upgradeHint")}
               </p>
             </div>
-            {user?.plan === PLAN_PRO ? (
+            {isPaidPlan(user?.plan) ? (
               <button onClick={openPortal} disabled={portalLoading} className="btn-secondary px-4 py-2 shrink-0">
                 {portalLoading ? t("billing.redirecting") : t("billing.manage")}
               </button>
