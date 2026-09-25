@@ -92,6 +92,13 @@ class Settings(BaseSettings):
     # Stripe fees). 300/day allowed 9,000 and 100/day allowed 3,000 — both above it.
     # 50/day caps a fully-used seat at ~1,500 pages (~$5.40), leaving ~45% margin.
     PLAN_PRO_DAILY_PAGES: int = 50
+    # Comped / beta accounts. Effectively unlimited, but finite on purpose: Gemini
+    # is metered and prepaid, so a genuinely uncapped account could drain the balance
+    # in an afternoon. 5,000 pages/day is ~$18/day of exposure per comped account —
+    # far beyond any real use, and still a backstop.
+    PLAN_UNLIMITED_DAILY_PAGES: int = 5000
+    PLAN_UNLIMITED_MAX_DOC_PAGES: int = 2000
+
     # Must stay below the daily cap: at parity, one max-size document consumes
     # the whole day and the advertised per-document allowance is usable once.
     PLAN_PRO_MAX_DOC_PAGES: int = 40

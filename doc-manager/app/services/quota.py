@@ -36,6 +36,19 @@ class QuotaExceeded(Exception):
 
 
 def limits_for(plan: str | None) -> PlanLimits:
+    """Limits for an account tier.
+
+    Note the fall-through: an unrecognised plan gets FREE limits, not an error. That
+    is deliberate (a typo must never hand out unlimited pages) but it is also why a
+    new tier has to be added HERE as well as to the schema — setting users.plan to a
+    value this function does not know silently *downgrades* the account.
+    """
+    if plan == "unlimited":
+        return PlanLimits(
+            "unlimited",
+            settings.PLAN_UNLIMITED_DAILY_PAGES,
+            settings.PLAN_UNLIMITED_MAX_DOC_PAGES,
+        )
     if plan == "pro":
         return PlanLimits("pro", settings.PLAN_PRO_DAILY_PAGES, settings.PLAN_PRO_MAX_DOC_PAGES)
     return PlanLimits("free", settings.PLAN_FREE_DAILY_PAGES, settings.PLAN_FREE_MAX_DOC_PAGES)

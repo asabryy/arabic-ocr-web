@@ -27,7 +27,12 @@ class UserOut(BaseModel):
 
 
 class PlanUpdate(BaseModel):
-    plan: Literal["free", "pro"]
+    # "unlimited" is the comped/beta tier — granted by hand, never sold, no Stripe
+    # subscription behind it. Keep in step with quota.limits_for() in doc-manager:
+    # a plan value that function does not recognise silently falls back to free.
+    plan: Literal["free", "pro", "unlimited"]
+    # Tell the account holder. Off by default so bulk or corrective changes stay quiet.
+    notify: bool = False
 
 
 class Token(BaseModel):

@@ -99,3 +99,20 @@ def test_upgrade_still_applies_when_no_subscription_is_recorded(db, make_user):
     """First purchase: nothing to compare against, so the guard must not block it."""
     user = make_user(customer_id="cus_1", sub_id=None)
     assert billing.apply_subscription(db, user, sub(status="active", sub_id="sub_1")) == "pro"
+
+
+# ── the comped tier ──────────────────────────────────────────────────────────
+
+def test_unlimited_is_a_real_tier_not_a_silent_downgrade():
+    """quota.limits_for falls through to FREE for any plan it does not know, so a
+    tier that exists in the schema but not in that function would hand a comped
+    account *fewer* pages than Pro. Pin the contract from this side."""
+    from app.schemas.user import PlanUpdate
+
+    assert PlanUpdate(plan="unlimited").plan == "unlimited"
+    assert PlanUpdate(plan="pro").notify is False  # notification is opt-in
+
+    import pydantic
+
+    with pytest.raises(pydantic.ValidationError):
+        PlanUpdate(plan="platinum")

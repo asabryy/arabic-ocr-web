@@ -1,6 +1,6 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { PLAN_PRO } from "../../constants/plans";
+import { PLAN_UNLIMITED, isPaidPlan } from "../../constants/plans";
 import { useUpgrade } from "../../hooks/useUpgrade";
 
 /**
@@ -16,6 +16,18 @@ function UsageMeter({ usage, loading, compact = false }) {
   if (!usage) return null;
 
   const { used_today: used, daily_limit: limit, plan } = usage;
+
+  // A comped account has a number so large it is a backstop, not a limit. Showing
+  // "4 / 5000" would read as a cap the user is working against.
+  if (plan === PLAN_UNLIMITED) {
+    return (
+      <div className={compact ? "min-w-[9rem]" : "min-w-[12rem]"}>
+        <span className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
+          {t("usage.unlimited", { used })}
+        </span>
+      </div>
+    );
+  }
   const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
   const nearLimit = pct >= 80;
   const atLimit = used >= limit;
@@ -26,7 +38,7 @@ function UsageMeter({ usage, loading, compact = false }) {
         <span className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
           {t("usage.today", { used, limit })}
         </span>
-        {plan !== PLAN_PRO && atLimit && (
+        {!isPaidPlan(plan) && atLimit && (
           <button
             onClick={startUpgrade}
             disabled={upgrading}

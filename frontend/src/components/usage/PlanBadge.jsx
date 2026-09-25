@@ -1,11 +1,12 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { PLAN_PRO } from "../../constants/plans";
+import { PLAN_UNLIMITED, isPaidPlan } from "../../constants/plans";
 
 /** Small pill showing the account tier. */
 function PlanBadge({ plan }) {
   const { t } = useTranslation();
-  const isPro = plan === PLAN_PRO;
+  const isPro = isPaidPlan(plan);
+  const isUnlimited = plan === PLAN_UNLIMITED;
   return (
     <span
       className={[

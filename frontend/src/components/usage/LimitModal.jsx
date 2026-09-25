@@ -2,7 +2,7 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import { Gauge, ExternalLink } from "lucide-react";
 import Modal from "../ui/Modal";
-import { PLAN_PRO } from "../../constants/plans";
+import { isPaidPlan } from "../../constants/plans";
 import { useUpgrade } from "../../hooks/useUpgrade";
 
 /**
@@ -24,7 +24,7 @@ function LimitModal({ detail, onClose }) {
   if (!detail) return null;
 
   const isDaily = detail.code === "daily_pages_exceeded";
-  const isPro = detail.plan === PLAN_PRO;
+  const isPro = isPaidPlan(detail.plan);
   const planName = isPro ? t("plans.pro") : t("plans.free");
   const body = isDaily
     ? t("limits.daily", { used: detail.used, limit: detail.limit, plan: planName })
