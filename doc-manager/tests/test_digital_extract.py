@@ -395,3 +395,32 @@ def test_body_text_is_not_turned_into_headings():
     ))
     xml = document_xml(process_pdf_digital(data))
     assert "Heading1" not in xml and "Heading2" not in xml
+
+
+# ── Lists ────────────────────────────────────────────────────────────────────
+
+
+def test_bullet_glyph_is_not_duplicated():
+    """Word's List Bullet STYLE carries its own numPr and draws a bullet, so
+    leaving the source's glyph in the text gives every item two of them."""
+    from tests.fixtures import arabic_page
+
+    data = arabic_page(
+        "<p>• البند الأول من القائمة</p>"
+        "<p>• البند الثاني من القائمة</p>"
+        "<p>• البند الثالث من القائمة</p>"
+    )
+    docx = process_pdf_digital(data)
+    assert "•" not in all_text(docx), "the printed bullet survived alongside Word's"
+    assert "البند" in all_text(docx)
+
+
+def test_numbered_items_keep_their_printed_numeral():
+    """The opposite rule, and deliberately so: List Paragraph carries NO numbering,
+    so the printed numeral is the only marker. Keeping it also preserves
+    Arabic-Indic digits, which Word's own numbering would re-render as Western."""
+    from tests.fixtures import arabic_page
+
+    data = arabic_page("<p>1 - البند الأول</p><p>2 - البند الثاني</p>")
+    text = all_text(process_pdf_digital(data))
+    assert "1" in text and "2" in text

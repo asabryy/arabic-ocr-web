@@ -449,6 +449,34 @@ def line_spacing(lines: list[Line], body_size: float) -> float:
     return float(Counter(gaps).most_common(1)[0][0])
 
 
+def strip_leading(runs: list[Run], count: int) -> list[Run]:
+    """Drop the first ``count`` characters, preserving each run's styling.
+
+    Used to remove a printed bullet glyph. Word's List Bullet STYLE carries its own
+    numPr and draws a bullet itself, so leaving the source's "•" in the text gives
+    every item two of them.
+    """
+    out: list[Run] = []
+    remaining = count
+    for run in runs:
+        if remaining <= 0:
+            out.append(run)
+            continue
+        if len(run.text) <= remaining:
+            remaining -= len(run.text)
+            continue
+        out.append(Run(run.text[remaining:], run.size, run.color, run.bold,
+                       run.italic, run.underline, run.font))
+        remaining = 0
+    # Leading whitespace left behind by the glyph is not content either.
+    while out and not out[0].text.strip():
+        out.pop(0)
+    if out:
+        out[0] = Run(out[0].text.lstrip(), out[0].size, out[0].color, out[0].bold,
+                     out[0].italic, out[0].underline, out[0].font)
+    return out
+
+
 def page_profile(lines: list[Line]) -> dict:
     """What "normal" looks like for a set of lines — the baseline every heading
     rule measures deviation from."""
@@ -820,9 +848,16 @@ def extract_page(page, style: str, doc_profile: dict | None = None,
         bigger = line.size > profile["size"] * 1.15
         much_bigger = line.size > profile["size"] * 1.30
 
-        if _BULLET_RE.match(text):
+        bullet = _BULLET_RE.match(text)
+        if bullet:
             flush()
-            blocks.append(Block("bullet", runs=runs, align=align, shading=shading))
+            # The glyph goes; Word's List Bullet style supplies its own. The
+            # printed NUMERAL of an ordered item is kept, because List Paragraph
+            # carries no numbering and Word would otherwise re-render Arabic-Indic
+            # digits as Western ones.
+            marker = len(text) - len(bullet.group(1))
+            blocks.append(Block("bullet", runs=strip_leading(runs, marker),
+                                align=align, shading=shading))
             continue
         if _ORDERED_RE.match(text):
             flush()
