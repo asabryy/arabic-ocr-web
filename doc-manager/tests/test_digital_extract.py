@@ -277,13 +277,69 @@ def test_uniform_style_drops_shading_without_hiding_text(fixture_bytes):
 def test_page_sized_fill_is_not_treated_as_shading():
     """A full-page background would otherwise shade every paragraph in the
     document."""
-    import fitz as _fitz
+    from tests.fixtures import arabic_page
 
-    doc = _fitz.open()
-    page = doc.new_page(width=595, height=842)
-    page.draw_rect(page.rect, color=None, fill=(0.9, 0.9, 0.5))
-    page.insert_text((72, 200), "نص عربي على خلفية كاملة")
-    data = doc.tobytes()
-    doc.close()
+    def full_background(page, pymupdf):
+        page.draw_rect(page.rect, color=None, fill=(0.9, 0.9, 0.5))
+
+    data = arabic_page("<p>نص عربي على خلفية كاملة</p>", draw=full_background)
     xml = document_xml(process_pdf_digital(data))
     assert not re.findall(r"<w:shd[^>]*w:fill=", xml)
+
+
+# ── Alignment ────────────────────────────────────────────────────────────────
+
+
+def test_title_centred_on_the_page_is_detected_despite_an_offset_column():
+    """Centring is judged against the page as well as the text column.
+
+    A document whose tables reach further right than its body text has an
+    ASYMMETRIC column, and its midpoint is then not the page's. A real document
+    centred its title at x=420.95 on an 842pt page — dead centre — while the
+    column's midpoint sat at 467, so testing against the column alone called it
+    92pt off and left the title right-aligned.
+    """
+    from tests.fixtures import arabic_page
+
+    # The title is centred; the body below it is pushed right, so the text column
+    # it would otherwise be measured against is not centred on the page.
+    data = arabic_page(
+        '<p style="text-align:center">عنوان الصفحة</p>'
+        + '<p style="margin-right:0;margin-left:35%">'
+        + ("نص عربي للمحتوى الأساسي في هذه الصفحة. " * 12)
+        + "</p>",
+        width=842, height=595,
+    )
+    xml = document_xml(process_pdf_digital(data))
+    assert '<w:jc w:val="center"/>' in xml
+
+
+def test_page_sized_sparse_grid_is_not_treated_as_a_table():
+    """A graphical page produces ruling lines the table finder reads as a grid.
+
+    Accepting it is far worse than missing a real table: every line on the page
+    becomes a cell, so paragraphs, headings and their alignment are gone. A real
+    workbook cover lost all of its centring this way — 12 pages, each one "table".
+    """
+    from tests.fixtures import arabic_page
+
+    def grid(page, pymupdf):
+        for i in range(6):
+            y = 40 + i * 130
+            page.draw_line(pymupdf.Point(40, y), pymupdf.Point(555, y))
+        for i in range(5):
+            x = 40 + i * 128
+            page.draw_line(pymupdf.Point(x, 40), pymupdf.Point(x, 690))
+
+    data = arabic_page('<p style="text-align:center">عنوان الدفتر</p>', draw=grid)
+    xml = document_xml(process_pdf_digital(data))
+    assert "<w:tbl>" not in xml, "a decorative grid was rendered as a table"
+    assert "عنوان" in all_text(process_pdf_digital(data))
+
+
+def test_a_real_small_table_is_still_detected(fixture_bytes):
+    """The guard above must not take genuine tables with it. On the real corpus a
+    true 3x3 table was SPARSER than the decorative grids (11% vs 14% filled) — it
+    is the page coverage that separates them, which is why both conditions are
+    required."""
+    assert document_xml(process_pdf_digital(fixture_bytes)).count("<w:tbl>") == 1

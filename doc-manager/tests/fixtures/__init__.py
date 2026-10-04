@@ -39,6 +39,31 @@ REJECT = {
 }
 
 
+def arabic_page(html: str, *, width: float = 595, height: float = 842,
+                draw=None) -> bytes:
+    """A one-page PDF whose Arabic is really shaped, for ad-hoc test documents.
+
+    Always use this rather than ``page.insert_text`` for Arabic: insert_text paints
+    glyphs in the order given with no shaping or bidi, and for a font without the
+    glyphs it emits placeholder dots — so a test written on it asserts against
+    "····· ······" and proves nothing.
+
+    ``draw`` receives the page before the text, for ruling lines or fills.
+    """
+    import pymupdf
+
+    from .make_fixture import CSS
+
+    doc = pymupdf.open()
+    page = doc.new_page(width=width, height=height)
+    if draw is not None:
+        draw(page, pymupdf)
+    page.insert_htmlbox(pymupdf.Rect(20, 20, width - 20, height - 20), html, css=CSS)
+    data = doc.tobytes()
+    doc.close()
+    return data
+
+
 def ensure_fixture() -> Path:
     """Build the fixture if it is not already on disk, and return its path."""
     if not FIXTURE_PDF.exists():

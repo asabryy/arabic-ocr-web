@@ -473,8 +473,21 @@ def text_column(lines: list[Line]) -> tuple[float, float]:
     return (xs0[len(xs0) // 10], xs1[-1 - len(xs1) // 10])
 
 
-def detect_align(line: Line, column: tuple[float, float]) -> str | None:
-    """Centre, justified, or natural — from where the line sits in the column."""
+def detect_align(line: Line, column: tuple[float, float],
+                 page_width: float | None = None) -> str | None:
+    """Centre, justified, or natural — from where the line sits on the page.
+
+    Centring is tested against the midpoint of the text column AND of the page,
+    accepting either. The column alone is not a safe reference: a document whose
+    tables reach further right than its body text has an ASYMMETRIC column, and a
+    title centred perfectly on the page then measures as 92pt off-centre against
+    it. One real document centred its title at x=420.95 on an 842pt page — dead
+    centre — while the column's midpoint sat at 467.
+
+    Tolerance is 4% of the column width on the midpoint, which is the same 8% on
+    the left-right gap difference: genuinely centred lines land within it, while
+    right-aligned headings are 45-80% out.
+    """
     left, right = column
     width = right - left
     if width <= 0:
@@ -482,11 +495,14 @@ def detect_align(line: Line, column: tuple[float, float]) -> str | None:
     left_gap = line.x0 - left
     right_gap = right - line.x1
     inset = min(left_gap, right_gap)
-    # Measured on the corpus: genuinely centred lines land ~4% of the column width
-    # from symmetric (the column edges are estimates), while right-aligned headings
-    # are 45-80% out. 8% sits in the gap with room on both sides.
-    if inset > width * 0.05 and abs(left_gap - right_gap) <= width * 0.08:
-        return "center"
+    tolerance = width * 0.04
+
+    if inset > width * 0.05:
+        mid = (line.x0 + line.x1) / 2
+        if abs(mid - (left + right) / 2) <= tolerance:
+            return "center"
+        if page_width and abs(mid - page_width / 2) <= tolerance:
+            return "center"
     if left_gap < width * 0.03 and right_gap < width * 0.03:
         return "both"
     return None
@@ -538,6 +554,30 @@ def boilerplate_images(doc) -> set[int]:
 # ── Tables, margins, borders ─────────────────────────────────────────────────
 
 
+def _is_decorative_grid(table, page_area: float) -> bool:
+    """A page-sized "table" that is mostly empty is page decoration.
+
+    The table finder keys off ruling lines, so a graphical page — a workbook cover,
+    a certificate, a bordered worksheet — produces a grid covering the whole page.
+    Accepting it is far more destructive than missing a real table: every line on
+    the page becomes a cell, so paragraphs, headings and their alignment are gone.
+
+    Both conditions are needed. Sparseness alone does not separate them — on this
+    corpus a genuine 3x3 table was 11% filled while the decorative grids were 14% —
+    but the real ones covered 1% of their page and the decorative ones 94%.
+    """
+    try:
+        rect_area = abs(fitz.Rect(table.bbox).get_area())
+        data = table.extract()
+    except Exception:  # noqa: BLE001
+        return False
+    cells = sum(len(r) for r in data)
+    if not cells:
+        return True
+    filled = sum(1 for r in data for c in r if (c or "").strip())
+    return (rect_area / page_area) > 0.6 and (filled / cells) < 0.5
+
+
 def extract_tables(page, glyphs: list[Glyph], style: str) -> list[dict]:
     """Ruled tables, each cell's text rebuilt from its own glyphs.
 
@@ -553,7 +593,10 @@ def extract_tables(page, glyphs: list[Glyph], style: str) -> list[dict]:
     except Exception:  # noqa: BLE001
         return out
 
+    page_area = abs(page.rect.get_area()) or 1.0
     for tb in getattr(found, "tables", []):
+        if _is_decorative_grid(tb, page_area):
+            continue
         rows_out = []
         try:
             row_objs = tb.rows
@@ -755,7 +798,7 @@ def extract_page(page, style: str, doc_profile: dict | None = None,
             page_label = _PAGE_NUM_RE.match(text).group(1)
             continue
 
-        align = detect_align(line, column)
+        align = detect_align(line, column, page.rect.width)
         shading = shading_for(line, fills)
         off_colour = line.color != profile["color"]
         bigger = line.size > profile["size"] * 1.15
