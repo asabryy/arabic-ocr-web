@@ -73,6 +73,9 @@ class Settings(BaseSettings):
     # line spacing — markedly tighter than the 1.5x that reads as obvious, which
     # silently merged every paragraph in the closest-set documents.
     DIGITAL_PARA_GAP_RATIO: float = 1.15
+    # Below this many points, a line's offset from the margin is glyph-box and
+    # justification slack rather than a deliberate indent.
+    DIGITAL_MIN_INDENT_PT: float = 8.0
     # "source" keeps the original's fonts, sizes, colours and underlines;
     # "uniform" renders like the Gemini path. Users choose per conversion.
     DIGITAL_DEFAULT_STYLE: str = "source"

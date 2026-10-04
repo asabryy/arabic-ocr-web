@@ -84,6 +84,8 @@ class Block:
     rows: list = field(default_factory=list)   # list[list[list[Run]]]
     has_header_row: bool = False
     shading: str | None = None     # "RRGGBB" behind the paragraph, if any
+    indent_pt: float = 0.0         # whole block, in from the start margin
+    first_line_pt: float = 0.0     # extra indent on the first line only
 
 
 # ── Font mapping ─────────────────────────────────────────────────────────────
@@ -164,7 +166,8 @@ def _emit_runs(para, runs: list[Run], default_rtl: bool) -> None:
 
 
 def _direct_paragraph(para, rtl: bool, align: str | None,
-                      shading: str | None = None) -> None:
+                      shading: str | None = None,
+                      indent_pt: float = 0.0, first_line_pt: float = 0.0) -> None:
     """Base direction, LOGICAL alignment, and any background fill.
 
     ``start``/``end`` rather than ``left``/``right``: Word for Mac resolves
@@ -181,6 +184,16 @@ def _direct_paragraph(para, rtl: bool, align: str | None,
     if shading:
         set_child(pPr, PPR_SEQ, "w:shd",
                   **{"w:val": "clear", "w:color": "auto", "w:fill": shading})
+    if indent_pt > 0 or first_line_pt > 0:
+        # w:start/w:firstLine, not w:left: these are LOGICAL edges, so the same
+        # values indent an Arabic paragraph from the right and an English one from
+        # the left, matching the start/end used for alignment.
+        attrs = {}
+        if indent_pt > 0:
+            attrs["w:start"] = twips(indent_pt)
+        if first_line_pt > 0:
+            attrs["w:firstLine"] = twips(first_line_pt)
+        set_child(pPr, PPR_SEQ, "w:ind", **attrs)
 
 
 # ── Blocks ───────────────────────────────────────────────────────────────────
@@ -238,7 +251,8 @@ def _render_block(doc, block: Block, default_rtl: bool) -> None:
     else:
         para = doc.add_paragraph()
 
-    _direct_paragraph(para, rtl, block.align, block.shading)
+    _direct_paragraph(para, rtl, block.align, block.shading,
+                      block.indent_pt, block.first_line_pt)
     _emit_runs(para, block.runs, rtl)
 
 

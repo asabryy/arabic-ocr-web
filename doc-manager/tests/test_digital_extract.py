@@ -424,3 +424,71 @@ def test_numbered_items_keep_their_printed_numeral():
     data = arabic_page("<p>1 - البند الأول</p><p>2 - البند الثاني</p>")
     text = all_text(process_pdf_digital(data))
     assert "1" in text and "2" in text
+
+
+# ── Indentation ──────────────────────────────────────────────────────────────
+
+
+def _indents(docx: bytes) -> tuple[list[int], list[int]]:
+    """(first-line indents, block indents) in points."""
+    xml = document_xml(docx)
+    first = [round(int(v) / 20) for v in re.findall(r'<w:ind[^>]*w:firstLine="(\d+)"', xml)]
+    start = [round(int(v) / 20) for v in re.findall(r'<w:ind[^>]*w:start="(\d+)"', xml)]
+    return first, start
+
+
+def test_first_line_indent_is_carried():
+    """Measured on the corpus: one document indents every paragraph's first line by
+    43pt, another by 27pt. Without this they all start flush."""
+    from tests.fixtures import arabic_page
+
+    body = "نص عربي يملأ السطر بالكامل حتى ينتقل إلى السطر التالي بشكل طبيعي. "
+    data = arabic_page("".join(
+        f'<p style="text-indent:40px">{body * 3}</p>' for _ in range(3)
+    ))
+    first, _ = _indents(process_pdf_digital(data))
+    assert first, "the first-line indent was lost"
+    assert any(30 <= v <= 50 for v in first), first
+
+
+def test_block_indent_is_carried():
+    """A whole paragraph set in from the margin — a quotation, a CV entry, a
+    sign-off."""
+    from tests.fixtures import arabic_page
+
+    body = "نص عربي داخل فقرة مزاحة عن الهامش بالكامل لتمثيل اقتباس. "
+    # The margin-bottom matters: without a gap the two paragraphs merge into one
+    # block, and a block's indent is the smallest offset among its lines — so the
+    # unindented first paragraph would cancel the indented second.
+    data = arabic_page(
+        f'<p style="margin-bottom:14px">{body * 3}</p>'
+        f'<p style="margin-right:60px;margin-bottom:14px">{body * 3}</p>'
+        f'<p>{body * 3}</p>'
+    )
+    _, start = _indents(process_pdf_digital(data))
+    assert start, "the block indent was lost"
+    assert any(40 <= v <= 80 for v in start), start
+
+
+def test_indent_is_measured_from_the_start_edge_not_the_left():
+    """For Arabic the start edge is the RIGHT one. Measuring from the left would
+    report every ragged line ending as an indent, so nearly every paragraph in
+    every document would come out indented."""
+    from tests.fixtures import arabic_page
+
+    body = "نص عربي عادي بدون أي إزاحة على الإطلاق في بداية السطر. "
+    data = arabic_page("".join(f"<p>{body * 3}</p>" for _ in range(4)))
+    first, start = _indents(process_pdf_digital(data))
+    assert not first and not start, (first, start)
+
+
+def test_centred_block_is_not_also_indented():
+    """A centred block's inset IS its centring. Writing an indent as well would
+    shift it off centre."""
+    from tests.fixtures import arabic_page
+
+    data = arabic_page('<p style="text-align:center">عنوان في وسط الصفحة</p>')
+    xml = document_xml(process_pdf_digital(data))
+    for para in re.findall(r"<w:p>.*?</w:p>", xml, re.S):
+        if 'w:val="center"' in para:
+            assert "<w:ind" not in para, "a centred paragraph was also indented"

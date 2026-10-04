@@ -449,6 +449,41 @@ def line_spacing(lines: list[Line], body_size: float) -> float:
     return float(Counter(gaps).most_common(1)[0][0])
 
 
+def start_offset(line: Line, column: tuple[float, float], rtl: bool) -> float:
+    """How far a line begins from the column's START edge.
+
+    The start edge is the RIGHT one for Arabic, so an indent is measured there.
+    Using the left edge instead would report every ragged line ending as an indent.
+    """
+    left, right = column
+    return (right - line.x1) if rtl else (line.x0 - left)
+
+
+def paragraph_indents(offsets: list[float], column_width: float
+                      ) -> tuple[float, float]:
+    """(block indent, extra first-line indent) in points, from line start offsets.
+
+    The block's indent is the SMALLEST offset among its lines — the line reaching
+    furthest toward the margin — because a ragged line is short at its end, never
+    at its start. The first-line indent is whatever that line adds on top.
+
+    Small offsets are noise: glyph bounding boxes and justification leave a point
+    or two of slack. Large ones are not indentation at all — a line inset a third
+    of the column is centred, and alignment already describes it.
+    """
+    if not offsets:
+        return (0.0, 0.0)
+    block = min(offsets)
+    first_extra = offsets[0] - block
+
+    max_indent = column_width * 0.33
+    if not (settings.DIGITAL_MIN_INDENT_PT <= block <= max_indent):
+        block = 0.0
+    if not (settings.DIGITAL_MIN_INDENT_PT <= first_extra <= max_indent):
+        first_extra = 0.0
+    return (block, first_extra)
+
+
 def strip_leading(runs: list[Run], count: int) -> list[Run]:
     """Drop the first ``count`` characters, preserving each run's styling.
 
@@ -818,16 +853,24 @@ def extract_page(page, style: str, doc_profile: dict | None = None,
     para_runs: list[Run] = []
     para_aligns: list[str] = []
     para_shading: list[str] = []
+    para_offsets: list[float] = []
     page_label: str | None = None
+    column_width = max(column[1] - column[0], 1.0)
 
     def flush() -> None:
         if para_runs:
             align = Counter(para_aligns).most_common(1)[0][0] if para_aligns else None
             shade = Counter(para_shading).most_common(1)[0][0] if para_shading else None
-            blocks.append(Block("para", runs=list(para_runs), align=align, shading=shade))
+            # A centred block's inset is its centring, not an indent; alignment
+            # already describes it and writing both would shift it off centre.
+            indent, first = (0.0, 0.0) if align == "center" else paragraph_indents(
+                para_offsets, column_width)
+            blocks.append(Block("para", runs=list(para_runs), align=align,
+                                shading=shade, indent_pt=indent, first_line_pt=first))
             para_runs.clear()
             para_aligns.clear()
             para_shading.clear()
+            para_offsets.clear()
 
     for i, line in enumerate(lines):
         if in_table(line):
@@ -886,6 +929,7 @@ def extract_page(page, style: str, doc_profile: dict | None = None,
             para_aligns.append(align)
         if shading:
             para_shading.append(shading)
+        para_offsets.append(start_offset(line, column, rtl))
         if i + 1 < len(lines) and lines[i + 1].baseline - line.baseline > split_gap:
             flush()
     flush()
