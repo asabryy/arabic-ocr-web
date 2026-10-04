@@ -14,52 +14,52 @@
     "settings": "Settings"
   },
   "landing": {
-    "badge": "Arabic OCR · Powered by Gemini vision",
-    "heroTitle1": "Arabic PDFs to",
-    "heroTitle2": "editable DOCX",
-    "heroTitle3": "with precision",
-    "heroSubtitle": "Textara converts Arabic PDF documents into structured, right-to-left Word files — preserving layout, headers, and formatting automatically.",
+    "badge": "Arabic PDF to Word",
+    "heroTitle1": "Arabic PDF to",
+    "heroTitle2": "editable Word",
+    "heroTitle3": "in seconds",
+    "heroSubtitle": "Upload an Arabic PDF and get back a Word file you can edit. Right-to-left layout, tashkeel and tables stay intact.",
     "heroCta": "Get started free",
     "heroSignIn": "Sign in",
     "heroNote": "Try one page free, no account · Free plan: 10 pages/day",
-    "featuresTitle": "Built for Arabic documents",
-    "featuresSubtitle": "Not a generic OCR tool with Arabic as an afterthought — every part of the pipeline is designed for right-to-left text.",
+    "featuresTitle": "Built for Arabic",
+    "featuresSubtitle": "Every step is built for right-to-left text, not adapted for it afterwards.",
     "howTitle": "How it works",
-    "howSubtitle": "Three steps from PDF to editable Word document.",
+    "howSubtitle": "Three steps from PDF to editable Word.",
     "ctaTitle": "Start converting today",
-    "ctaSubtitle": "Create a free account and convert your first Arabic PDF in under a minute.",
+    "ctaSubtitle": "Free account, 10 pages a day. No card needed.",
     "ctaButton": "Create free account",
     "footerCopy": "© {{year}} Textara",
     "features": {
       "rtl": {
-        "title": "Full RTL support",
-        "desc": "Preserves right-to-left direction and bidirectionality in exported DOCX files with high fidelity across all Arabic dialects."
+        "title": "Proper right-to-left",
+        "desc": "Direction, alignment and mixed Arabic-English text come through correctly in Word, on Windows and Mac."
       },
       "layout": {
-        "title": "Smart layout detection",
-        "desc": "A vision-language model reads the whole page in context and rebuilds columns, headers, paragraphs and titles into a clean document."
+        "title": "Real document structure",
+        "desc": "Headings, tables, lists and page numbers arrive as Word elements you can edit."
       },
-      "gpu": {
-        "title": "Fast, accurate OCR",
-        "desc": "Each page is transcribed by Google's Gemini vision model — full diacritics (tashkeel), footnotes and Eastern-Arabic numerals included, with a low hallucination rate."
+      "scans": {
+        "title": "Scanned pages too",
+        "desc": "Scans are read with OCR, including tashkeel, footnotes and Arabic-Indic numerals."
       },
       "cloud": {
-        "title": "Cloud storage",
-        "desc": "Your files are stored securely on Cloudflare R2. Download the original PDF or the converted DOCX any time."
+        "title": "Your files stay private",
+        "desc": "Stored securely. Download the original PDF or the Word file whenever you need it."
       }
     },
     "steps": {
       "upload": {
         "title": "Upload your PDF",
-        "body": "Drag and drop any Arabic PDF — scanned documents, books, reports, or forms."
+        "body": "Books, reports, forms or scans. Drag and drop."
       },
       "process": {
-        "title": "AI processes it",
-        "body": "The pipeline detects layout regions and runs OCR on each section in correct reading order."
+        "title": "Textara reads it",
+        "body": "Text, structure and reading order are recovered. Most documents take seconds."
       },
       "download": {
-        "title": "Download DOCX",
-        "body": "Get a clean, editable Word document with correct RTL formatting, ready to use immediately."
+        "title": "Download Word",
+        "body": "An editable .docx with the layout intact."
       }
     }
   },
@@ -85,7 +85,7 @@
     },
     "empty": {
       "title": "No conversions yet",
-      "body": "Upload an Arabic PDF on the Convert page and run OCR to get an editable Word document.",
+      "body": "Upload an Arabic PDF on the Convert page to get an editable Word document.",
       "cta": "Start converting"
     },
     "overview": "Overview"
@@ -141,7 +141,7 @@
       "body": "Upload an Arabic PDF above to get started."
     },
     "warnings": {
-      "tooManyPages": "This file has {{pages}} pages — your plan converts {{limit}} at a time, so it will go through in batches."
+      "tooManyPages": "This file has {{pages}} pages. Your plan converts {{limit}} at a time, so it will go through in batches."
     },
     "partial": {
       "pages": "Pages {{start}}–{{end}}",
@@ -200,7 +200,7 @@
   },
   "trial": {
     "title": "Try it free",
-    "subtitle": "Drop a PDF — we'll OCR the first page. No signup.",
+    "subtitle": "Drop a PDF and we'll convert the first page. No signup.",
     "freeTag": "Free · no account",
     "dropSubtitle": "PDF only · max {{mb}} MB · first page converted",
     "uploading": "Uploading {{name}}…",
@@ -243,7 +243,7 @@
   "limits": {
     "title": "Plan limit reached",
     "daily": "You've used {{used}} of {{limit}} pages today on the {{plan}} plan.",
-    "doc": "This document is {{used}} pages. The {{plan}} plan converts {{limit}} pages at a time, so it goes through in batches — take the next {{limit}} pages now and pick up where you left off whenever you like.",
+    "doc": "This document is {{used}} pages. The {{plan}} plan converts {{limit}} pages at a time, so it goes through in batches. Take the next {{limit}} now and pick up where you left off whenever you like.",
     "upgradeHint": "Pro converts 40 pages per batch and 50 pages a day, so a long document takes far fewer rounds.",
     "proPrice": "Pro is $9.99 per month. Cancel anytime.",
     "upgradeCta": "Continue to payment · $9.99/mo",
@@ -295,7 +295,7 @@
     },
     "pending": {
       "title": "Payment received",
-      "body": "Your plan is taking longer than usual to update. It should apply shortly — refresh the page, or contact us if it doesn't."
+      "body": "Your plan is taking longer than usual to update. It should apply shortly, so refresh the page in a moment."
     },
     "backToDashboard": "Back to dashboard",
     "errors": {
@@ -319,14 +319,14 @@
     "sending": "Sending…",
     "cancel": "Cancel",
     "close": "Close",
-    "sent": "Thanks — we've got your message and will reply by email.",
+    "sent": "Thanks. We've got your message and will reply by email.",
     "error": "Couldn't send your message. Please try again in a moment."
   },
   "verify": {
     "notVerified": "Your email isn't verified yet.",
     "resend": "Send the verification email again",
     "sending": "Sending…",
-    "sent": "Sent — check your inbox.",
+    "sent": "Sent. Check your inbox.",
     "limited": "A verification email was requested recently. Try again in a few minutes.",
     "error": "Couldn't send it. Please try again shortly."
   }

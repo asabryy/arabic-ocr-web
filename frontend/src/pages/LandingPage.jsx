@@ -10,7 +10,7 @@ import TrialBox from "../components/trial/TrialBox";
 const FEATURES = [
   { icon: AlignRight,      key: "rtl",    num: "01" },
   { icon: LayoutDashboard, key: "layout", num: "02" },
-  { icon: Zap,             key: "gpu",    num: "03" },
+  { icon: Zap,             key: "scans",  num: "03" },
   { icon: Cloud,           key: "cloud",  num: "04" },
 ];
 
