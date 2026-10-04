@@ -343,3 +343,55 @@ def test_a_real_small_table_is_still_detected(fixture_bytes):
     is the page coverage that separates them, which is why both conditions are
     required."""
     assert document_xml(process_pdf_digital(fixture_bytes)).count("<w:tbl>") == 1
+
+
+# ── Paragraphs and titles ────────────────────────────────────────────────────
+
+
+def test_paragraphs_split_at_tight_spacing():
+    """Paragraph breaks are measured against the DOMINANT line spacing.
+
+    Real documents set paragraph gaps at 1.2-1.3x their line spacing, not the 1.5x
+    that reads as obvious. A document whose lines sit 33.5pt apart and whose
+    paragraphs sit 39.5pt apart had all four of its paragraphs merged into one.
+    """
+    from tests.fixtures import arabic_page
+
+    body = "هذه فقرة عربية كاملة تحتوي على عدة كلمات لاختبار الفصل بين الفقرات. "
+    data = arabic_page("".join(
+        f'<p style="margin-bottom:6px">{body * 2}</p>' for _ in range(4)
+    ))
+    xml = document_xml(process_pdf_digital(data))
+    # Four paragraphs, not one run-on block.
+    assert xml.count("<w:p>") >= 4, "paragraphs were merged into one"
+
+
+def test_centred_line_slightly_larger_than_body_is_a_heading():
+    """Size alone misses real section titles.
+
+    One document set its titles at 18pt against a 16pt body — 1.12x, under any
+    sane size threshold — but centred them. A centred line cannot be a justified
+    body line, because centring requires an inset on BOTH sides, so the
+    combination is safe to treat as a title.
+    """
+    from tests.fixtures import arabic_page
+
+    body = "نص عربي عادي يملأ عرض العمود بالكامل لكي يكون سطرا من سطور المتن. "
+    data = arabic_page(
+        '<p style="text-align:center;font-size:18px">مقدمة:</p>'
+        f'<p style="font-size:16px">{body * 4}</p>'
+    )
+    xml = document_xml(process_pdf_digital(data))
+    assert "Heading1" in xml or "Heading2" in xml, "the centred title was read as body text"
+
+
+def test_body_text_is_not_turned_into_headings():
+    """The guard on the rule above: ordinary justified prose must stay prose."""
+    from tests.fixtures import arabic_page
+
+    body = "نص عربي عادي يملأ عرض العمود بالكامل لكي يكون سطرا من سطور المتن. "
+    data = arabic_page("".join(
+        f'<p style="text-align:justify">{body * 3}</p>' for _ in range(3)
+    ))
+    xml = document_xml(process_pdf_digital(data))
+    assert "Heading1" not in xml and "Heading2" not in xml

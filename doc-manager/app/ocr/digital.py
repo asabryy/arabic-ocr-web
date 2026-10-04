@@ -433,6 +433,22 @@ def glyphs_to_runs(ordered: list[Glyph], rtl: bool, underline: bool,
 # ── Page-level structure ─────────────────────────────────────────────────────
 
 
+def line_spacing(lines: list[Line], body_size: float) -> float:
+    """The dominant baseline-to-baseline distance — the within-paragraph spacing.
+
+    The MODE, not the median: paragraph breaks are a minority of gaps but a large
+    one, and they drag a median upward until the threshold derived from it no
+    longer separates them. Rounded to the point, because baselines carry sub-point
+    jitter that would otherwise give every line its own "mode".
+    """
+    gaps = [round(lines[i + 1].baseline - lines[i].baseline)
+            for i in range(len(lines) - 1)
+            if 0 < lines[i + 1].baseline - lines[i].baseline < 200]
+    if not gaps:
+        return body_size * 1.4
+    return float(Counter(gaps).most_common(1)[0][0])
+
+
 def page_profile(lines: list[Line]) -> dict:
     """What "normal" looks like for a set of lines — the baseline every heading
     rule measures deviation from."""
@@ -767,8 +783,8 @@ def extract_page(page, style: str, doc_profile: dict | None = None,
         return any(ty0 - 2 <= line.baseline <= ty1 + 2
                    for _, ty0, _, ty1 in (t["bbox"] for t in tables))
 
-    gaps = [lines[i + 1].baseline - lines[i].baseline for i in range(len(lines) - 1)]
-    normal_gap = statistics.median(gaps) if gaps else profile["size"] * 1.4
+    normal_gap = line_spacing(lines, profile["size"])
+    split_gap = max(normal_gap * settings.DIGITAL_PARA_GAP_RATIO, normal_gap + 1.5)
 
     blocks: list[Block] = []
     para_runs: list[Run] = []
@@ -814,8 +830,15 @@ def extract_page(page, style: str, doc_profile: dict | None = None,
             continue
 
         # Colour is the strongest heading signal in real documents: an accent
-        # colour at body size is a heading a size-only rule never sees.
-        if off_colour or much_bigger or (bigger and line.bold and not profile["bold"]):
+        # colour at body size is a heading a size-only rule never sees. Centring is
+        # the second: a short line set apart and only slightly larger than the body
+        # is a title, and judging it on size alone misses it — one real document
+        # set its section titles at 18pt against a 16pt body, 1.12x, under any
+        # sane size threshold. A centred line cannot be a justified body line,
+        # because centring requires an inset on BOTH sides.
+        centred_title = align == "center" and line.size > profile["size"] * 1.02
+        if (off_colour or much_bigger or centred_title
+                or (bigger and line.bold and not profile["bold"])):
             flush()
             level = 1 if (much_bigger or (off_colour and bigger)) else 2
             blocks.append(Block("heading", runs=runs, level=level, align=align, shading=shading))
@@ -828,7 +851,7 @@ def extract_page(page, style: str, doc_profile: dict | None = None,
             para_aligns.append(align)
         if shading:
             para_shading.append(shading)
-        if i + 1 < len(lines) and lines[i + 1].baseline - line.baseline > normal_gap * 1.5:
+        if i + 1 < len(lines) and lines[i + 1].baseline - line.baseline > split_gap:
             flush()
     flush()
 

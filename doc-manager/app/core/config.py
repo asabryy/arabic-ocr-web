@@ -68,6 +68,11 @@ class Settings(BaseSettings):
     # are inferred from geometry; this must stay above the intra-word gap that a
     # non-connecting Arabic letter (ا د ر و) leaves behind.
     DIGITAL_WORD_GAP_EM: float = 0.25
+    # A baseline gap this many times the dominant line spacing starts a new
+    # paragraph. Measured across the corpus, paragraph breaks sit at 1.2-1.3x the
+    # line spacing — markedly tighter than the 1.5x that reads as obvious, which
+    # silently merged every paragraph in the closest-set documents.
+    DIGITAL_PARA_GAP_RATIO: float = 1.15
     # "source" keeps the original's fonts, sizes, colours and underlines;
     # "uniform" renders like the Gemini path. Users choose per conversion.
     DIGITAL_DEFAULT_STYLE: str = "source"
