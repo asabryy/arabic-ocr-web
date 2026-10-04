@@ -17,6 +17,9 @@ EXPECT_MIXED_LINE = "المبلغ المعتمد هو 1500 SAR"       # digits a
 EXPECT_REFERENCE = "HR-2026/14"                         # a token with inner punctuation
 EXPECT_BODY = "تصرف المنشأة بدل السكن للموظفين"
 EXPECT_HEADING = "سياسة الموارد البشرية"
+# White text on a filled band: invisible unless the fill is carried too.
+EXPECT_BAND_TITLE = "إدارة الموارد البشرية"
+EXPECT_BAND_FILL = "996600"
 EXPECT_SUBHEADING = "أولاً: بدل السكن"
 
 # The table, in the source's own column order: column 0 is the RIGHTMOST cell.

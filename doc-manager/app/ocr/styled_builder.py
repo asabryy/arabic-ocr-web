@@ -83,6 +83,7 @@ class Block:
     align: str | None = None       # start | end | center | both
     rows: list = field(default_factory=list)   # list[list[list[Run]]]
     has_header_row: bool = False
+    shading: str | None = None     # "RRGGBB" behind the paragraph, if any
 
 
 # ── Font mapping ─────────────────────────────────────────────────────────────
@@ -162,16 +163,24 @@ def _emit_runs(para, runs: list[Run], default_rtl: bool) -> None:
                 _add_run(para, seg, run, rtl=seg_rtl)
 
 
-def _direct_paragraph(para, rtl: bool, align: str | None) -> None:
-    """Base direction plus LOGICAL alignment.
+def _direct_paragraph(para, rtl: bool, align: str | None,
+                      shading: str | None = None) -> None:
+    """Base direction, LOGICAL alignment, and any background fill.
 
     ``start``/``end`` rather than ``left``/``right``: Word for Mac resolves
     ``right`` as the logical end of the line, which in an RTL paragraph is the
     visually left margin.
+
+    Shading is not decoration. A title band is routinely a coloured rectangle with
+    WHITE text on it, so dropping the fill does not merely lose the colour — it
+    leaves white text on a white page, and the heading vanishes.
     """
     pPr = para._p.get_or_add_pPr()
     set_child(pPr, PPR_SEQ, "w:bidi", **{"w:val": "1" if rtl else "0"})
     set_child(pPr, PPR_SEQ, "w:jc", **{"w:val": align or ("end" if rtl else "start")})
+    if shading:
+        set_child(pPr, PPR_SEQ, "w:shd",
+                  **{"w:val": "clear", "w:color": "auto", "w:fill": shading})
 
 
 # ── Blocks ───────────────────────────────────────────────────────────────────
@@ -229,7 +238,7 @@ def _render_block(doc, block: Block, default_rtl: bool) -> None:
     else:
         para = doc.add_paragraph()
 
-    _direct_paragraph(para, rtl, block.align)
+    _direct_paragraph(para, rtl, block.align, block.shading)
     _emit_runs(para, block.runs, rtl)
 
 

@@ -206,6 +206,56 @@ def find_rules(page) -> list[tuple[float, float, float]]:
     return out
 
 
+def _rgb_hex(fill) -> str | None:
+    """PyMuPDF reports colours as 0-1 floats; Word wants RRGGBB."""
+    if not fill or len(fill) < 3:
+        return None
+    return "".join(f"{max(0, min(255, int(round(c * 255)))):02X}" for c in fill[:3])
+
+
+def find_fills(page) -> list[tuple[tuple[float, float, float, float], str]]:
+    """Filled rectangles big enough to sit behind text, as (rect, RRGGBB).
+
+    A title band is a filled rectangle with the heading painted on top, and the
+    text on it is routinely WHITE. Ignoring the fill therefore does not just lose a
+    colour — it leaves white text on a white page and the heading disappears.
+
+    Excludes thin rules (underlines, handled separately) and page-sized shapes
+    (borders and full-page backgrounds, which would shade the entire document).
+    """
+    out = []
+    try:
+        drawings = page.get_drawings()
+    except Exception:  # noqa: BLE001
+        return out
+    page_area = abs(page.rect.get_area()) or 1.0
+    for d in drawings:
+        r = d.get("rect")
+        fill = d.get("fill")
+        if r is None or fill is None:
+            continue
+        if r.height < 4.0 or r.width < 30.0:
+            continue                      # a rule, not a band
+        if abs(r.get_area()) / page_area > 0.5:
+            continue                      # page background or frame
+        hex_colour = _rgb_hex(fill)
+        if hex_colour and hex_colour != "FFFFFF":
+            out.append(((r.x0, r.y0, r.x1, r.y1), hex_colour))
+    return out
+
+
+def shading_for(line: Line, fills) -> str | None:
+    """The fill a line sits on, if any. Nearest-enclosing wins, so a band inside a
+    larger panel shades the line rather than the panel."""
+    best, best_area = None, None
+    for (fx0, fy0, fx1, fy1), colour in fills:
+        if fx0 - 2 <= line.x0 and line.x1 <= fx1 + 2 and fy0 - 2 <= line.baseline <= fy1 + 2:
+            area = (fx1 - fx0) * (fy1 - fy0)
+            if best_area is None or area < best_area:
+                best, best_area = colour, area
+    return best
+
+
 def mark_underlines(lines: list[Line], rules, page_width: float) -> None:
     """A rule under a line, covering most of its width, is an underline.
 
@@ -668,6 +718,7 @@ def extract_page(page, style: str, doc_profile: dict | None = None,
               else text_column([ln for ln in lines if ln.size > 0]))
 
     tables = extract_tables(page, glyphs, style)
+    fills = find_fills(page) if style == STYLE_SOURCE else []
 
     def in_table(line: Line) -> bool:
         return any(ty0 - 2 <= line.baseline <= ty1 + 2
@@ -679,14 +730,17 @@ def extract_page(page, style: str, doc_profile: dict | None = None,
     blocks: list[Block] = []
     para_runs: list[Run] = []
     para_aligns: list[str] = []
+    para_shading: list[str] = []
     page_label: str | None = None
 
     def flush() -> None:
         if para_runs:
             align = Counter(para_aligns).most_common(1)[0][0] if para_aligns else None
-            blocks.append(Block("para", runs=list(para_runs), align=align))
+            shade = Counter(para_shading).most_common(1)[0][0] if para_shading else None
+            blocks.append(Block("para", runs=list(para_runs), align=align, shading=shade))
             para_runs.clear()
             para_aligns.clear()
+            para_shading.clear()
 
     for i, line in enumerate(lines):
         if in_table(line):
@@ -702,17 +756,18 @@ def extract_page(page, style: str, doc_profile: dict | None = None,
             continue
 
         align = detect_align(line, column)
+        shading = shading_for(line, fills)
         off_colour = line.color != profile["color"]
         bigger = line.size > profile["size"] * 1.15
         much_bigger = line.size > profile["size"] * 1.30
 
         if _BULLET_RE.match(text):
             flush()
-            blocks.append(Block("bullet", runs=runs, align=align))
+            blocks.append(Block("bullet", runs=runs, align=align, shading=shading))
             continue
         if _ORDERED_RE.match(text):
             flush()
-            blocks.append(Block("ordered", runs=runs, align=align))
+            blocks.append(Block("ordered", runs=runs, align=align, shading=shading))
             continue
 
         # Colour is the strongest heading signal in real documents: an accent
@@ -720,7 +775,7 @@ def extract_page(page, style: str, doc_profile: dict | None = None,
         if off_colour or much_bigger or (bigger and line.bold and not profile["bold"]):
             flush()
             level = 1 if (much_bigger or (off_colour and bigger)) else 2
-            blocks.append(Block("heading", runs=runs, level=level, align=align))
+            blocks.append(Block("heading", runs=runs, level=level, align=align, shading=shading))
             continue
 
         if para_runs:
@@ -728,6 +783,8 @@ def extract_page(page, style: str, doc_profile: dict | None = None,
         para_runs.extend(runs)
         if align:
             para_aligns.append(align)
+        if shading:
+            para_shading.append(shading)
         if i + 1 < len(lines) and lines[i + 1].baseline - line.baseline > normal_gap * 1.5:
             flush()
     flush()

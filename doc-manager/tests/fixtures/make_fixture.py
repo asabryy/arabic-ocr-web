@@ -34,6 +34,7 @@ h1 {{ font-size: 20px; color: #bf0000; text-decoration: underline; text-align: c
 h2 {{ font-size: 14px; color: #bf0000; text-decoration: underline; }}
 p  {{ font-size: 12px; text-align: justify; }}
 .head {{ font-size: 9px; color: #000; text-align: center; }}
+.band {{ font-size: 15px; color: #fff; text-align: center; font-weight: bold; }}
 .num  {{ font-size: 10px; text-align: center; }}
 table {{ border-collapse: collapse; width: 100%; direction: rtl; }}
 td, th {{ border: 1px solid #000; padding: 4px 8px; font-size: 11px; }}
@@ -41,6 +42,8 @@ th {{ font-weight: bold; }}
 """
 
 RUNNING_HEAD = "دليل سياسات الموارد البشرية"
+
+BAND_TITLE = "إدارة الموارد البشرية"
 
 PAGE1 = """
 <h1>سياسة الموارد البشرية</h1>
@@ -81,7 +84,16 @@ def build(out_path: Path) -> None:
         page.insert_htmlbox(pymupdf.Rect(60, 45, 535, 70),
                             f'<div class="head">{RUNNING_HEAD}</div>', css=CSS)
 
-        page.insert_htmlbox(pymupdf.Rect(60, 90, 535, 700), html, css=CSS)
+        if page_no == 1:
+            # A title band: a filled rectangle with WHITE text painted on it. The
+            # colour is not decoration — drop the fill and the heading becomes
+            # white text on a white page, i.e. invisible.
+            page.draw_rect(pymupdf.Rect(70, 78, 525, 104),
+                           color=None, fill=(0.6, 0.4, 0.0))
+            page.insert_htmlbox(pymupdf.Rect(72, 80, 523, 103),
+                                f'<div class="band">{BAND_TITLE}</div>', css=CSS)
+
+        page.insert_htmlbox(pymupdf.Rect(60, 114, 535, 700), html, css=CSS)
 
         page.insert_htmlbox(pymupdf.Rect(250, 780, 345, 802),
                             f'<div class="num">{page_no}</div>', css=CSS)
@@ -97,7 +109,8 @@ def main():
     out = Path(args.out)
     build(out)
     print(f"wrote {out} ({out.stat().st_size} bytes)")
-    print("  expected: running head on both pages, 1 table (4x3, rightmost column")
+    print("  expected: a brown title band with white text, running head on both")
+    print("            pages, 1 table (4x3, rightmost column")
     print("            = الدرجة), 2 red underlined headings, a bullet list,")
     print("            mixed Arabic/Latin/digit lines, page numbers 1-2,")
     print("            single-rule border")

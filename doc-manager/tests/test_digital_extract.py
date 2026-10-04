@@ -17,6 +17,8 @@ import pytest
 from app.ocr.digital import process_pdf_digital
 from app.ocr.styled_builder import STYLE_SOURCE, STYLE_UNIFORM
 from tests.fixtures import (
+    EXPECT_BAND_FILL,
+    EXPECT_BAND_TITLE,
     EXPECT_BODY,
     EXPECT_MIXED_LINE,
     EXPECT_REFERENCE,
@@ -239,3 +241,49 @@ def test_empty_pdf_produces_a_document_not_an_exception():
     data = doc.tobytes()
     doc.close()
     assert process_pdf_digital(data)
+
+
+# ── Background fills ─────────────────────────────────────────────────────────
+
+
+def test_title_band_fill_is_carried(fixture_bytes):
+    """A coloured band behind a heading is content, not decoration.
+
+    The text painted on such a band is routinely WHITE, so dropping the fill does
+    not merely lose a colour — it leaves white text on a white page and the
+    heading disappears entirely. This was found on a real user document whose
+    brown header vanished from the conversion.
+    """
+    xml = document_xml(process_pdf_digital(fixture_bytes, style=STYLE_SOURCE))
+    fills = set(re.findall(r'<w:shd[^>]*w:fill="([0-9A-F]{6})"', xml))
+    assert EXPECT_BAND_FILL in fills, f"the title band's fill was lost: {fills}"
+
+
+def test_text_on_the_band_survives_with_it(fixture_bytes):
+    text = all_text(process_pdf_digital(fixture_bytes, style=STYLE_SOURCE))
+    assert EXPECT_BAND_TITLE in text
+
+
+def test_uniform_style_drops_shading_without_hiding_text(fixture_bytes):
+    """Uniform output has no fills — and must therefore also drop the white text
+    colour, or the heading would be invisible for the opposite reason."""
+    xml = document_xml(process_pdf_digital(fixture_bytes, style=STYLE_UNIFORM))
+    assert not re.findall(r"<w:shd[^>]*w:fill=", xml)
+    assert "FFFFFF" not in re.findall(r'<w:color w:val="([0-9A-F]{6})"', xml)
+    assert EXPECT_BAND_TITLE in all_text(process_pdf_digital(fixture_bytes,
+                                                             style=STYLE_UNIFORM))
+
+
+def test_page_sized_fill_is_not_treated_as_shading():
+    """A full-page background would otherwise shade every paragraph in the
+    document."""
+    import fitz as _fitz
+
+    doc = _fitz.open()
+    page = doc.new_page(width=595, height=842)
+    page.draw_rect(page.rect, color=None, fill=(0.9, 0.9, 0.5))
+    page.insert_text((72, 200), "نص عربي على خلفية كاملة")
+    data = doc.tobytes()
+    doc.close()
+    xml = document_xml(process_pdf_digital(data))
+    assert not re.findall(r"<w:shd[^>]*w:fill=", xml)
