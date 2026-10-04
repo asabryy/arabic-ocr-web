@@ -13,6 +13,7 @@ import requests
 from app import metrics
 from app.core.config import settings
 from app.dependencies.storage import get_storage
+from app.ocr import triage
 from app.queue.task_queue import declare_task_queue
 
 logger = logging.getLogger("doc-worker")
@@ -40,6 +41,15 @@ def touch_heartbeat() -> None:
             fh.write(str(time.time()))
     except OSError as e:  # noqa: BLE001 — never let the probe marker kill the worker
         logger.warning("Could not write heartbeat file: %s", e)
+
+
+def _call_digital(pdf_bytes: bytes, max_pages: int | None = None,
+                  style: str = "source", mode: str = "ocr") -> bytes:
+    from app.ocr.digital import process_pdf_digital
+    logger.info("Running digital extraction (style=%s, max_pages=%s)...", style, max_pages)
+    docx_bytes = process_pdf_digital(pdf_bytes, max_pages=max_pages, style=style, mode=mode)
+    logger.info("Digital extraction complete, produced %d bytes of DOCX", len(docx_bytes))
+    return docx_bytes
 
 
 def _call_gemini(pdf_bytes: bytes, max_pages: int | None = None, mode: str = "ocr") -> bytes:
@@ -211,6 +221,9 @@ def process_task(task: dict, redelivered: bool = False) -> None:
     file_id = task.get("file_id")
     user_id = task.get("user_id")
     mode = task.get("mode", "ocr")
+    # Additive field: a worker running an older image ignores it and still produces
+    # a correct document, just in the default styling.
+    style = task.get("style") or settings.DIGITAL_DEFAULT_STYLE
     max_pages = task.get("max_pages")  # set for anonymous trials (first page only)
     pages = task.get("pages")          # reserved page count, for refund on failure
 
@@ -252,11 +265,51 @@ def process_task(task: dict, redelivered: bool = False) -> None:
                 pdf_bytes = f.read()
         logger.info("PDF fetched (%d bytes)", len(pdf_bytes))
 
-        # ── Call OCR backend ────────────────────────────────────────────────
+        # ── Choose a route, then convert ────────────────────────────────────
+        # Most uploads already contain their text, and reading it costs nothing;
+        # only scans, batched tashkeel and broken font maps need the vision model.
+        # Triage decides BEFORE either runs, so the cheap path is never paid for
+        # twice.
         if OCR_BACKEND == "http":
             docx_bytes = _call_http(pdf_bytes, max_pages)
         else:
-            docx_bytes = _call_gemini(pdf_bytes, max_pages, mode)
+            decision = triage.classify(pdf_bytes)
+            route = decision.route
+            metrics.OCR_ROUTE.labels(route=route, reason=decision.reason).inc()
+            logger.info(
+                "Route for file=%s: %s (%s) pages=%d text_pages=%d "
+                "batching=%.2f suspect=%d producer=%r",
+                file_id, route, decision.reason, decision.pages, decision.text_pages,
+                decision.mark_batching, decision.suspect_chars, decision.producer,
+            )
+
+            docx_bytes = None
+            if decision.is_digital:
+                t_digital = time.perf_counter()
+                try:
+                    candidate = _call_digital(pdf_bytes, max_pages, style, mode)
+                    # The same blank guard the final output gets. A digital pass
+                    # that produced nothing readable is a fallback trigger, not a
+                    # failure — the user still gets their document.
+                    visible = _docx_visible_chars(candidate)
+                    if visible is not None and visible < settings.OCR_MIN_OUTPUT_CHARS:
+                        metrics.OCR_FALLBACKS.labels(reason="blank").inc()
+                        logger.warning(
+                            "Digital pass for file=%s produced %d visible character(s); "
+                            "falling back to Gemini", file_id, visible,
+                        )
+                    else:
+                        docx_bytes = candidate
+                        metrics.DIGITAL_DURATION.observe(time.perf_counter() - t_digital)
+                except Exception as e:  # noqa: BLE001 — any digital failure is Gemini's cue
+                    metrics.OCR_FALLBACKS.labels(reason="error").inc()
+                    logger.warning(
+                        "Digital pass for file=%s failed (%s: %s); falling back to Gemini",
+                        file_id, type(e).__name__, e,
+                    )
+
+            if docx_bytes is None:
+                docx_bytes = _call_gemini(pdf_bytes, max_pages, mode)
 
         # ── Blank-output guard ──────────────────────────────────────────────
         # An image-only scan makes every page come back empty, and an empty DOCX is

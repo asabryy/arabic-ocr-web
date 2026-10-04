@@ -239,3 +239,8 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+# Corpus report output — contains no document text, but is a local measurement,
+# not source. Regenerate with doc-manager/scripts/corpus_report.py.
+corpus_results.json
+# Generated at test time by tests/fixtures/make_fixture.py.
+doc-manager/tests/fixtures/*.pdf

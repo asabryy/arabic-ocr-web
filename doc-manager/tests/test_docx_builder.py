@@ -160,7 +160,10 @@ def test_arabic_runs_are_marked_rtl():
     z = build(["قال المؤلف إن هذه المسألة مشهورة."])
     para = body_paragraphs(root(z))[0]
     assert bidi_val(para) == "1"
-    assert jc_val(para) == "right"
+    # "end", never "right": Word for Mac resolves "right" as the LOGICAL end of
+    # the line, which in an RTL paragraph is the visually LEFT margin, so a
+    # document that looks correct on Windows is left-aligned on macOS.
+    assert jc_val(para) == "end"
     assert all(has(r, "rtl") for r in runs_of(para))
 
 
@@ -170,8 +173,34 @@ def test_latin_paragraph_is_not_forced_rtl():
     z = build([LATIN_PAGE])
     para = find_paragraph(body_paragraphs(root(z)), "English paragraph")
     assert bidi_val(para) == "0", "Latin paragraph was given an RTL base direction"
-    assert jc_val(para) == "left", "Latin paragraph was right-aligned"
+    assert jc_val(para) == "start", "Latin paragraph was not start-aligned"
     assert not any(has(r, "rtl") for r in runs_of(para))
+
+
+def test_alignment_is_always_logical():
+    """No paragraph anywhere may use the physical values.
+
+    This is the regression guard for the macOS bug: python-docx's
+    WD_ALIGN_PARAGRAPH writes "left"/"right", and anything reintroducing it would
+    silently left-align every Arabic document in Word for Mac.
+    """
+    z = build(["قال المؤلف إن هذه المسألة مشهورة.", LATIN_PAGE])
+    values = {jc_val(p) for p in body_paragraphs(root(z))}
+    assert "right" not in values and "left" not in values, (
+        f"physical alignment leaked into the document: {values}"
+    )
+
+
+def test_theme_font_lang_declares_a_bidi_locale():
+    """The master switch. Without w:bidi on themeFontLang, Word left-aligns RTL
+    body text regardless of what the paragraphs say, and python-docx's default
+    template does not set it."""
+    import re
+    z = build(["قال المؤلف إن هذه المسألة مشهورة."])
+    settings_xml = z.read("word/settings.xml").decode()
+    tag = re.search(r"<w:themeFontLang[^>]*/>", settings_xml)
+    assert tag, "settings.xml has no themeFontLang element"
+    assert 'w:bidi="ar-SA"' in tag.group(0), tag.group(0)
 
 
 def test_mixed_paragraph_splits_runs_at_script_boundaries():

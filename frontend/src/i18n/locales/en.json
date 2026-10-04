@@ -152,6 +152,13 @@
       "queued": "Converting pages {{start}}–{{end}}. {{remaining}} pages of \"{{filename}}\" still to go.",
       "queuedFinal": "Converting the last pages of \"{{filename}}\" ({{start}}–{{end}}).",
       "hint": "Each batch downloads as its own Word file."
+    },
+    "style": {
+      "label": "Output style",
+      "source": "Match original",
+      "uniform": "Clean",
+      "sourceHint": "Keep the original document's fonts, sizes, colours and underlining. Scanned documents have no styling to copy, so they always come out clean.",
+      "uniformHint": "One consistent font and size throughout, whatever the original looked like."
     }
   },
   "auth": {

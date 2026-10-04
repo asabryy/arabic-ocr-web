@@ -35,11 +35,17 @@ export const deleteDocument = async (filename) => {
  * which pages were taken (`start_page`/`end_page`), what is left
  * (`remaining_pages`), where to resume (`next_start_page`) and which Word file it
  * will land in (`output_filename`).
+ *
+ * `style` is "source" (keep the original's fonts, sizes and colours) or
+ * "uniform" (one clean style throughout). It only affects documents converted
+ * from their text layer — a scan has no styling to preserve, so the server
+ * ignores it there.
  */
-export const convertDocument = async (filename, { startPage, endPage } = {}) => {
+export const convertDocument = async (filename, { startPage, endPage, style } = {}) => {
   const params = { filename };
   if (startPage != null) params.start_page = startPage;
   if (endPage != null) params.end_page = endPage;
+  if (style) params.style = style;
   const res = await docApi.post("/convert", null, { params });
   return res.data;
 };

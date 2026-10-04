@@ -2490,6 +2490,170 @@
         "y": 109
       },
       "id": 43
+    },
+    {
+      "type": "row",
+      "title": "Conversion routing",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 117
+      },
+      "panels": []
+    },
+    {
+      "type": "piechart",
+      "title": "Route split (last 24h)",
+      "description": "Which path conversions took. Digital reads the PDF's own text layer and costs nothing; Gemini renders each page and costs ~$0.0036. Baseline on the real corpus is roughly half digital.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 118
+      },
+      "targets": [
+        {
+          "expr": "sum by (route) (increase(ocr_route_total[24h]))",
+          "legendFormat": "{{route}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Why documents go to Gemini",
+      "description": "no_text_layer is a scan \u2014 expected and unavoidable. batched_tashkeel and broken_tounicode are documents whose text layer exists but cannot be trusted. A sustained rise in either means the corpus has shifted.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 16,
+        "x": 8,
+        "y": 118
+      },
+      "targets": [
+        {
+          "expr": "sum by (reason) (rate(ocr_route_total{route=\"gemini\"}[30m]))",
+          "legendFormat": "{{reason}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Digital attempts that fell back",
+      "description": "Documents triage judged clean that the digital path could not read. The user still gets their document \u2014 Gemini serves it \u2014 but a climbing rate means the triage rules need revisiting. This is the number to watch after any threshold change.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 126
+      },
+      "targets": [
+        {
+          "expr": "sum by (reason) (rate(ocr_fallbacks_total[30m]))",
+          "legendFormat": "{{reason}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Conversion time by path",
+      "description": "Median seconds per document. Digital is milliseconds; Gemini is 3-9 s per page.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 126
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(digital_duration_seconds_bucket[30m])))",
+          "legendFormat": "digital p50",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(ocr_request_duration_seconds_bucket[30m])))",
+          "legendFormat": "overall p50",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Gemini spend avoided (24h, est.)",
+      "description": "Pages taken by the digital path, priced at what Gemini would have cost for them. An estimate: the real saving also includes the retries those pages would have triggered.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 126
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(ocr_route_total{route=\"digital\"}[24h])) * 11 * 0.0036",
+          "legendFormat": "avoided",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ]
     }
   ],
   "templating": {

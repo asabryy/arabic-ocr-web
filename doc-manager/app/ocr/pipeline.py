@@ -28,6 +28,19 @@ from docx.oxml.ns import qn
 
 from app import metrics
 from app.core.config import settings
+from app.ocr.ooxml import (
+    A4_HEIGHT_TWIPS,
+    A4_WIDTH_TWIPS,
+    PPR_SEQ,
+    RPR_SEQ,
+    SECTPR_SEQ,
+    add_break,
+    half_points,
+    harden_rtl,
+    set_child,
+    xml_safe,
+)
+from app.ocr.script import is_rtl_text, segment_by_script
 
 log = logging.getLogger("doc-worker.ocr")
 
@@ -198,92 +211,6 @@ def ocr_page(png_bytes: bytes) -> str:
         return (resp.text or "").strip()
 
 
-# ── Script / direction detection ──────────────────────────────────────────────
-
-# Arabic (+ supplements and presentation forms), Hebrew, Syriac, Thaana, N'Ko:
-# everything Word must lay out right-to-left.
-_RTL_RANGES = (
-    (0x0590, 0x05FF),  # Hebrew
-    (0x0600, 0x06FF),  # Arabic
-    (0x0700, 0x074F),  # Syriac
-    (0x0750, 0x077F),  # Arabic Supplement
-    (0x0780, 0x07BF),  # Thaana
-    (0x07C0, 0x07FF),  # N'Ko
-    (0x0860, 0x08FF),  # Syriac Supplement / Arabic Extended-A
-    (0xFB1D, 0xFDFF),  # Hebrew + Arabic Presentation Forms-A
-    (0xFE70, 0xFEFF),  # Arabic Presentation Forms-B
-)
-
-
-def _is_rtl_char(ch: str) -> bool:
-    cp = ord(ch)
-    return any(lo <= cp <= hi for lo, hi in _RTL_RANGES)
-
-
-def _is_latin_char(ch: str) -> bool:
-    cp = ord(ch)
-    if not ch.isalpha():
-        return False
-    return (0x41 <= cp <= 0x5A) or (0x61 <= cp <= 0x7A) or (0x00C0 <= cp <= 0x024F)
-
-
-def _char_script(ch: str) -> str | None:
-    """'rtl', 'ltr', or None for a neutral character (space, digit, punctuation)."""
-    if _is_rtl_char(ch):
-        # Combining marks (tashkeel) inherit the direction of what they sit on, but
-        # they only ever sit on Arabic letters here, so counting them as RTL is safe.
-        return "rtl"
-    if _is_latin_char(ch):
-        return "ltr"
-    return None
-
-
-def is_rtl_text(text: str, default: bool = True) -> bool:
-    """True when a string is majority right-to-left.
-
-    Counted per WORD — each token takes the direction of its first strong character —
-    not per character: Arabic words are markedly shorter than their Latin equivalents,
-    so a character count flips "نص Smith" to left-to-right on spelling alone. Text with
-    no strong characters at all (a numeric table cell, a date) falls back to ``default``,
-    the surrounding direction, rather than being forced left-to-right.
-    """
-    rtl = ltr = 0
-    for token in text.split():
-        for ch in token:
-            script = _char_script(ch)
-            if script == "rtl":
-                rtl += 1
-                break
-            if script == "ltr":
-                ltr += 1
-                break
-    if rtl == ltr:
-        return default
-    return rtl > ltr
-
-
-def _segment_by_script(text: str, default_rtl: bool) -> list[tuple[str, bool]]:
-    """Split text into (chunk, is_rtl) runs at strong-direction boundaries.
-
-    Neutral characters attach to the chunk that precedes them (or to the first strong
-    chunk when they lead), so "قال Smith في 1998" becomes an RTL run, an LTR run and an
-    RTL run — each of which can then carry (or not carry) ``<w:rtl/>``.
-    """
-    if not text:
-        return []
-    chunks: list[list] = []  # [text, is_rtl|None]
-    for ch in text:
-        script = _char_script(ch)
-        want = None if script is None else (script == "rtl")
-        if chunks and (want is None or chunks[-1][1] in (None, want)):
-            chunks[-1][0] += ch
-            if chunks[-1][1] is None and want is not None:
-                chunks[-1][1] = want
-        else:
-            chunks.append([ch, want])
-    return [(t, default_rtl if d is None else d) for t, d in chunks]
-
-
 # ── Structured-text parsing ───────────────────────────────────────────────────
 
 _MARKER_RE = re.compile(
@@ -435,49 +362,7 @@ def _parse_page(text: str) -> Page:
     return page
 
 
-# ── Low-level OOXML helpers ───────────────────────────────────────────────────
-
-# Child order is not optional in OOXML: Word rejects (or silently ignores) properties
-# written out of schema sequence, which is how `w:cs` can "be set" and do nothing.
-_PPR_SEQ = (
-    "w:pStyle", "w:keepNext", "w:keepLines", "w:pageBreakBefore", "w:framePr",
-    "w:widowControl", "w:numPr", "w:suppressLineNumbers", "w:pBdr", "w:shd", "w:tabs",
-    "w:suppressAutoHyphens", "w:kinsoku", "w:wordWrap", "w:overflowPunct",
-    "w:topLinePunct", "w:autoSpaceDE", "w:autoSpaceDN", "w:bidi", "w:adjustRightInd",
-    "w:snapToGrid", "w:spacing", "w:ind", "w:contextualSpacing", "w:mirrorIndents",
-    "w:suppressOverlap", "w:jc", "w:textDirection", "w:textAlignment",
-    "w:textboxTightWrap", "w:outlineLvl", "w:divId", "w:cnfStyle", "w:rPr", "w:sectPr",
-    "w:pPrChange",
-)
-_SECTPR_SEQ = (
-    "w:footnotePr", "w:endnotePr", "w:type", "w:pgSz", "w:pgMar", "w:paperSrc",
-    "w:pgBorders", "w:lnNumType", "w:pgNumType", "w:cols", "w:formProt", "w:vAlign",
-    "w:noEndnote", "w:titlePg", "w:textDirection", "w:bidi", "w:rtlGutter", "w:docGrid",
-    "w:printerSettings", "w:sectPrChange",
-)
-_RPR_SEQ = (
-    "w:rStyle", "w:rFonts", "w:b", "w:bCs", "w:i", "w:iCs", "w:caps", "w:smallCaps",
-    "w:strike", "w:dstrike", "w:outline", "w:shadow", "w:emboss", "w:imprint",
-    "w:noProof", "w:snapToGrid", "w:vanish", "w:webHidden", "w:color", "w:spacing",
-    "w:w", "w:kern", "w:position", "w:sz", "w:szCs", "w:highlight", "w:u", "w:effect",
-    "w:bdr", "w:shd", "w:fitText", "w:vertAlign", "w:rtl", "w:cs", "w:em", "w:lang",
-    "w:eastAsianLayout", "w:specVanish", "w:oMath",
-)
-
-
-def _set_child(parent, seq: tuple[str, ...], tag: str, **attrs: str):
-    """Replace ``tag`` under ``parent``, inserted at its schema-mandated position."""
-    parent.remove_all(tag)
-    el = OxmlElement(tag)
-    for name, value in attrs.items():
-        el.set(qn(name), value)
-    successors = seq[seq.index(tag) + 1:] if tag in seq else ()
-    parent.insert_element_before(el, *successors)
-    return el
-
-
-def _half_points(size_pt: float) -> str:
-    return str(int(round(size_pt * 2)))
+# ── Run and paragraph rendering ───────────────────────────────────────────────
 
 
 def _add_run(para, text: str, *, rtl: bool, size_pt: float,
@@ -489,31 +374,23 @@ def _add_run(para, text: str, *, rtl: bool, size_pt: float,
     so a run styled through the high-level API renders in Word's default font at
     Word's default size. Everything here is written on the XML directly.
     """
-    run = para.add_run(text)
+    run = para.add_run(xml_safe(text))
     rPr = run._r.get_or_add_rPr()
     font = settings.DOCX_FONT
-    _set_child(rPr, _RPR_SEQ, "w:rFonts", **{"w:ascii": font, "w:hAnsi": font, "w:cs": font})
+    set_child(rPr, RPR_SEQ, "w:rFonts", **{"w:ascii": font, "w:hAnsi": font, "w:cs": font})
     if bold:
         # w:bCs is the complex-script half of bold; w:b alone leaves Arabic un-bolded.
-        _set_child(rPr, _RPR_SEQ, "w:b")
-        _set_child(rPr, _RPR_SEQ, "w:bCs")
-    _set_child(rPr, _RPR_SEQ, "w:sz", **{"w:val": _half_points(size_pt)})
-    _set_child(rPr, _RPR_SEQ, "w:szCs", **{"w:val": _half_points(size_pt)})
+        set_child(rPr, RPR_SEQ, "w:b")
+        set_child(rPr, RPR_SEQ, "w:bCs")
+    set_child(rPr, RPR_SEQ, "w:sz", **{"w:val": half_points(size_pt)})
+    set_child(rPr, RPR_SEQ, "w:szCs", **{"w:val": half_points(size_pt)})
     if highlight:
-        _set_child(rPr, _RPR_SEQ, "w:highlight", **{"w:val": "yellow"})
+        set_child(rPr, RPR_SEQ, "w:highlight", **{"w:val": "yellow"})
     if rtl:
         # <w:rtl/> marks the run right-to-left; without it Word resolves the run with
         # the paragraph's base direction only and mis-places neutrals and numerals.
-        _set_child(rPr, _RPR_SEQ, "w:rtl")
+        set_child(rPr, RPR_SEQ, "w:rtl")
     return run
-
-
-def _add_break(para, kind: str | None = None) -> None:
-    br = OxmlElement("w:br")
-    if kind:
-        br.set(qn("w:type"), kind)
-    run = para.add_run()
-    run._r.append(br)
 
 
 def _split_bold(text: str) -> list[tuple[str, bool]]:
@@ -542,7 +419,7 @@ def _add_inline(para, text: str, *, rtl: bool, size_pt: float, bold: bool = Fals
                 # refused to guess at.
                 _add_run(para, piece, rtl=rtl, size_pt=size_pt, bold=bold, highlight=True)
                 continue
-            for seg, seg_rtl in _segment_by_script(piece, rtl):
+            for seg, seg_rtl in segment_by_script(piece, rtl):
                 _add_run(para, seg, rtl=seg_rtl, size_pt=size_pt, bold=bold or is_bold)
 
 
@@ -553,14 +430,14 @@ def _direct_paragraph(para, rtl: bool) -> None:
     or French inside an Arabic document is not dragged to the right margin.
     """
     pPr = para._p.get_or_add_pPr()
-    _set_child(pPr, _PPR_SEQ, "w:bidi", **{"w:val": "1" if rtl else "0"})
+    set_child(pPr, PPR_SEQ, "w:bidi", **{"w:val": "1" if rtl else "0"})
     para.alignment = WD_ALIGN_PARAGRAPH.RIGHT if rtl else WD_ALIGN_PARAGRAPH.LEFT
 
 
 def _render_lines(para, lines: list[str], *, rtl: bool, size_pt: float, bold: bool = False) -> None:
     for idx, line in enumerate(lines):
         if idx:
-            _add_break(para)
+            add_break(para)
         _add_inline(para, line, rtl=rtl, size_pt=size_pt, bold=bold)
 
 
@@ -595,12 +472,12 @@ def _render_rule(doc) -> None:
     """The footnote separator: a short rule, as printed above notes on the page."""
     para = doc.add_paragraph()
     pPr = para._p.get_or_add_pPr()
-    bdr = _set_child(pPr, _PPR_SEQ, "w:pBdr")
+    bdr = set_child(pPr, PPR_SEQ, "w:pBdr")
     top = OxmlElement("w:top")
     for name, value in (("w:val", "single"), ("w:sz", "4"), ("w:space", "1"), ("w:color", "auto")):
         top.set(qn(name), value)
     bdr.append(top)
-    _set_child(pPr, _PPR_SEQ, "w:spacing", **{"w:before": "120", "w:after": "0"})
+    set_child(pPr, PPR_SEQ, "w:spacing", **{"w:before": "120", "w:after": "0"})
 
 
 def _render_block(doc, block: Block, default_rtl: bool) -> None:
@@ -641,17 +518,12 @@ def _render_block(doc, block: Block, default_rtl: bool) -> None:
 
 # ── Section / running heads ───────────────────────────────────────────────────
 
-# A4 in twentieths of a point: 210 × 297 mm.
-A4_WIDTH_TWIPS = 11906
-A4_HEIGHT_TWIPS = 16838
-
-
 def _configure_section(section, default_rtl: bool) -> None:
     sectPr = section._sectPr
-    _set_child(sectPr, _SECTPR_SEQ, "w:pgSz",
+    set_child(sectPr, SECTPR_SEQ, "w:pgSz",
                **{"w:w": str(A4_WIDTH_TWIPS), "w:h": str(A4_HEIGHT_TWIPS)})
     if default_rtl:
-        _set_child(sectPr, _SECTPR_SEQ, "w:bidi", **{"w:val": "1"})
+        set_child(sectPr, SECTPR_SEQ, "w:bidi", **{"w:val": "1"})
 
 
 def _most_common(values: list[str]) -> str | None:
@@ -708,7 +580,7 @@ def _apply_running_heads(section, pages: list[Page], default_rtl: bool) -> None:
     if labels:
         first = labels[0].translate(_ARABIC_INDIC).strip()
         if first.isdigit() and 0 < int(first) < 32768:
-            _set_child(section._sectPr, _SECTPR_SEQ, "w:pgNumType", **{"w:start": first})
+            set_child(section._sectPr, SECTPR_SEQ, "w:pgNumType", **{"w:start": first})
 
 
 # ── DOCX builder ──────────────────────────────────────────────────────────────
@@ -735,11 +607,21 @@ def build_docx(pages_text: list[str], out) -> None:
 
     for index, page in enumerate(pages):
         if index:
-            _add_break(doc.add_paragraph(), "page")
+            add_break(doc.add_paragraph(), "page")
         for block in page.blocks:
             _render_block(doc, block, default_rtl)
 
-    doc.save(out)
+    # Saved through a buffer so the two RTL layers python-docx cannot express —
+    # logical w:jc and themeFontLang's w:bidi — are applied to the package before
+    # it reaches the caller. Without them Word for Mac left-aligns the document.
+    buf = io.BytesIO()
+    doc.save(buf)
+    hardened = harden_rtl(buf.getvalue())
+    if hasattr(out, "write"):
+        out.write(hardened)
+    else:
+        with open(out, "wb") as fh:
+            fh.write(hardened)
 
 
 # ── Orchestration ─────────────────────────────────────────────────────────────
