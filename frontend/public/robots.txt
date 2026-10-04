@@ -1,0 +1,17 @@
+# Only the marketing pages are worth indexing. Everything behind a login is
+# either empty to a crawler or a one-time token link, and /verify-email and
+# /reset-password carry tokens that should never reach an index.
+User-agent: *
+Allow: /$
+Allow: /pricing
+Disallow: /dashboard
+Disallow: /convert
+Disallow: /upload
+Disallow: /settings
+Disallow: /billing/
+Disallow: /verify-email
+Disallow: /reset-password
+Disallow: /forgot-password
+Disallow: /coming-soon
+
+Sitemap: https://textara.app/sitemap.xml
