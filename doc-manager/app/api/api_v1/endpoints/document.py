@@ -283,6 +283,14 @@ def convert_document(
         None, ge=1, description="1-based last page (inclusive). Clamped to the end of "
                                 "the document and to the plan's pages-per-batch limit."
     ),
+    style: str = Query(
+        "source",
+        pattern="^(source|uniform)$",
+        description="How the Word output should look. 'source' keeps the original's "
+                    "fonts, sizes, colours and underlines; 'uniform' renders it in a "
+                    "single clean style. Only affects documents converted from their "
+                    "text layer — a scanned document has no styling to preserve.",
+    ),
     user_id: str = Depends(get_current_user_id),
     storage: FileStorage = Depends(get_storage),
     engine: Engine = Depends(get_engine),
@@ -423,6 +431,9 @@ def convert_document(
             "mode": "ocr",
             "pages": batch_pages,
             "reserved_day": quota.today().isoformat(),
+            # Additive, like the source_* fields below: a worker on the previous
+            # image reads this dict with .get() and simply uses its default.
+            "style": style,
         }
         if partial:
             # Additive and purely informational: `file_id` already points at a PDF

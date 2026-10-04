@@ -50,7 +50,10 @@ def test_convert_success_reserves_and_publishes(db_client, published, db):
     }
     # The whole-document message is unchanged: no new keys reach a worker that has
     # no reason to look at them.
-    assert set(task) == {"file_id", "user_id", "mode", "pages", "reserved_day"}
+    # The whole envelope, pinned: a field added here must be added deliberately,
+    # because the worker reads it with .get() and an accidental one goes unnoticed
+    # until a message queued by a new API image reaches an old worker.
+    assert set(task) == {"file_id", "user_id", "mode", "pages", "reserved_day", "style"}
     # The reservation day travels with the task so a refund lands on the row the
     # pages were taken from, not on whatever day the failure happens to occur.
     assert task["reserved_day"] == quota.today().isoformat()
@@ -127,3 +130,28 @@ def test_usage_endpoint(db_client):
 def test_quota_endpoints_503_without_database(client, monkeypatch):
     monkeypatch.setattr("app.core.config.settings.DATABASE_URL", "")
     assert client.get(f"{BASE}/usage").status_code == 503
+
+
+# ── Output styling ───────────────────────────────────────────────────────────
+
+
+def test_convert_defaults_to_source_styling(db_client, published, db):
+    """Digital conversions keep the original's fonts, sizes and colours unless the
+    user asks otherwise."""
+    _upload(db_client, "a.pdf", 2)
+    assert db_client.post(f"{BASE}/convert?filename=a.pdf").status_code == 200
+    assert published[0]["style"] == "source"
+
+
+def test_convert_accepts_uniform_styling(db_client, published, db):
+    _upload(db_client, "a.pdf", 2)
+    r = db_client.post(f"{BASE}/convert?filename=a.pdf&style=uniform")
+    assert r.status_code == 200, r.text
+    assert published[0]["style"] == "uniform"
+
+
+def test_convert_rejects_an_unknown_style(db_client, db):
+    """A typo must not silently fall through to a default the user did not pick."""
+    _upload(db_client, "a.pdf", 2)
+    r = db_client.post(f"{BASE}/convert?filename=a.pdf&style=fancy")
+    assert r.status_code == 422, r.text

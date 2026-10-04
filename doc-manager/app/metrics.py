@@ -74,6 +74,25 @@ GEMINI_COST_USD = Counter(
 
 # ── API: product / business counters ──────────────────────────────────────────
 
+# ── Conversion routing ───────────────────────────────────────────────────────
+# Which path each document took, and why. `reason` is the triage verdict, so a
+# rise in gemini/batched_tashkeel is distinguishable from gemini/no_text_layer —
+# the first is a corpus shift, the second is users uploading more scans.
+OCR_ROUTE = Counter(
+    "ocr_route", "Conversions by route and triage reason", ["route", "reason"]
+)
+# Digital was attempted and Gemini served instead. Distinct from OCR_ROUTE: these
+# are documents triage thought were clean and were not, so a climbing rate means
+# the triage rules need revisiting.
+OCR_FALLBACKS = Counter(
+    "ocr_fallbacks", "Digital attempts that fell back to Gemini", ["reason"]
+)
+DIGITAL_DURATION = Histogram(
+    "digital_duration_seconds",
+    "Wall-clock time of a successful digital conversion",
+    buckets=(0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30),
+)
+
 REFUNDS = Counter(
     "textara_refunds",
     "Quota refunds after a failed conversion",

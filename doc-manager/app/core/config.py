@@ -43,6 +43,43 @@ class Settings(BaseSettings):
     GEMINI_PRICE_INPUT_USD_PER_M: float = 0.75
     GEMINI_PRICE_OUTPUT_USD_PER_M: float = 3.75
 
+    # ── Digital conversion path ───────────────────────────────────────────────
+    # Most uploads are born-digital: the PDF already contains its text, so it can
+    # be converted with no Gemini call at all — free, and milliseconds instead of
+    # 3-9 s per page. Measured over 293 real documents (11,336 pages): 71% are
+    # digital, and of those 76% extract cleanly, so ~50% of all pages take this
+    # route. The rest fall back to Gemini.
+    DIGITAL_PATH_ENABLED: bool = True      # kill switch; False = Gemini for everything
+    # Fraction of pages that must carry a usable text layer. Below it the document
+    # is a scan (or a scan wearing an OCR text layer) and belongs on the OCR path.
+    DIGITAL_MIN_TEXT_PAGE_RATIO: float = 0.8
+    # Fraction of combining marks sharing a coordinate with another. Above this the
+    # typesetter batched its tashkeel at shared pen positions, the coordinates carry
+    # no per-mark information, and no geometry recovers which letter each belongs
+    # to. 23% of digital documents in the corpus; they go to Gemini.
+    DIGITAL_MAX_MARK_BATCHING: float = 0.10
+    # Below this many marks the ratio above is noise, not signal: a page with two
+    # marks that happen to collide would otherwise score 100%.
+    DIGITAL_MIN_MARKS_FOR_BATCHING: int = 30
+    # Pages inspected when choosing a route. Bounds triage on a 600-page book; it
+    # does not bound the conversion itself.
+    DIGITAL_TRIAGE_MAX_PAGES: int = 25
+    # Word-gap threshold, in em. Subset fonts often omit the space glyph, so gaps
+    # are inferred from geometry; this must stay above the intra-word gap that a
+    # non-connecting Arabic letter (ا د ر و) leaves behind.
+    DIGITAL_WORD_GAP_EM: float = 0.25
+    # A baseline gap this many times the dominant line spacing starts a new
+    # paragraph. Measured across the corpus, paragraph breaks sit at 1.2-1.3x the
+    # line spacing — markedly tighter than the 1.5x that reads as obvious, which
+    # silently merged every paragraph in the closest-set documents.
+    DIGITAL_PARA_GAP_RATIO: float = 1.15
+    # Below this many points, a line's offset from the margin is glyph-box and
+    # justification slack rather than a deliberate indent.
+    DIGITAL_MIN_INDENT_PT: float = 8.0
+    # "source" keeps the original's fonts, sizes, colours and underlines;
+    # "uniform" renders like the Gemini path. Users choose per conversion.
+    DIGITAL_DEFAULT_STYLE: str = "source"
+
     # DOCX output. The font is written to w:ascii/w:hAnsi AND to w:cs (complex script) —
     # Word lays Arabic out from the complex-script side, so a font set only on the Latin
     # side silently falls back to Word's default. Same for the size (w:sz + w:szCs).

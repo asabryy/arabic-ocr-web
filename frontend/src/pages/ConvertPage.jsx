@@ -305,6 +305,22 @@ function ConvertPage() {
 
   // ── Actions ──────────────────────────────────────────────────────────────
 
+  // Remembered per browser: a user who wants clean output almost always wants it
+  // every time, and re-picking it on each conversion would be tedious. Wrapped
+  // because storage access throws in private windows and on blocked site data.
+  const [outputStyle, setOutputStyle] = useState(() => {
+    try {
+      return localStorage.getItem("textara.outputStyle") || "source";
+    } catch {
+      return "source";
+    }
+  });
+
+  const chooseStyle = (value) => {
+    setOutputStyle(value);
+    try { localStorage.setItem("textara.outputStyle", value); } catch { /* not fatal */ }
+  };
+
   const handleUpload = async (file) => {
     setUploadProgress({ filename: file.name, progress: 0 });
     try {
@@ -325,7 +341,7 @@ function ConvertPage() {
     setConverting((prev) => new Set(prev).add(filename));
     processingStart.current[filename] = Date.now();
     try {
-      const res = await convertDocument(filename, range ?? {});
+      const res = await convertDocument(filename, { ...(range ?? {}), style: outputStyle });
       if (res?.partial) {
         // Say exactly what was taken and what is left, rather than letting the user
         // assume a 211-page book is on its way.
@@ -470,7 +486,37 @@ function ConvertPage() {
           </div>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">{t("convert.subtitle")}</p>
         </div>
-        <UsageMeter usage={usage} loading={usageLoading} />
+        <div className="flex flex-col sm:items-end gap-2">
+          <UsageMeter usage={usage} loading={usageLoading} />
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              {t("convert.style.label")}
+            </span>
+            <div
+              role="radiogroup"
+              aria-label={t("convert.style.label")}
+              className="inline-flex rounded-md border border-zinc-200 dark:border-zinc-700 overflow-hidden"
+            >
+              {["source", "uniform"].map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={outputStyle === value}
+                  title={t(`convert.style.${value}Hint`)}
+                  onClick={() => chooseStyle(value)}
+                  className={`px-2.5 py-1 text-xs transition-colors ${
+                    outputStyle === value
+                      ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                      : "text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  }`}
+                >
+                  {t(`convert.style.${value}`)}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Main layout */}
