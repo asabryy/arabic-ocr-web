@@ -31,6 +31,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
+      # The Arabic extraction tests build their fixture PDF with a real Arabic
+      # font. Without one PyMuPDF silently falls back to whatever is installed,
+      # and that font's broken ToUnicode map yields different garbage — so the
+      # tests fail against text no human wrote. Pinned here rather than left to
+      # the runner image.
+      - name: Arabic fonts for the test fixture
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-core
       - name: doc-manager — lint + tests
         working-directory: doc-manager
         run: |

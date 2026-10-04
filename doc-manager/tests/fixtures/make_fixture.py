@@ -25,6 +25,28 @@ import pymupdf
 REG = "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf"
 BOLD = "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Bold.ttf"
 
+
+def require_fonts() -> None:
+    """Refuse to build the fixture without the exact font it was written against.
+
+    Every expectation in tests/fixtures/__init__.py — including the pinned
+    ToUnicode defect — is a property of THIS font. Without it PyMuPDF silently
+    substitutes another, whose own cmap maps lam to U+01C4 and lam-alef-hamza to
+    U+01BE, so the fixture renders plausible-looking text that matches nothing and
+    the failures point at the extractor rather than at the missing font.
+
+    Install with: apt-get install fonts-noto-core
+    """
+    missing = [f for f in (REG, BOLD) if not Path(f).exists()]
+    if missing:
+        raise RuntimeError(
+            "The Arabic test fixture needs Noto Naskh Arabic, which is not "
+            f"installed: {', '.join(missing)}. Install it with "
+            "`apt-get install fonts-noto-core`. Building the fixture with a "
+            "substituted font produces text that matches none of the "
+            "expectations, because they encode this font's own glyph mapping."
+        )
+
 CSS = f"""
 @font-face {{ font-family: nn; src: url({REG}); }}
 @font-face {{ font-family: nn; font-weight: bold; src: url({BOLD}); }}
@@ -71,6 +93,7 @@ PAGE2 = """
 
 
 def build(out_path: Path) -> None:
+    require_fonts()
     doc = pymupdf.open()
     for page_no, html in ((1, PAGE1), (2, PAGE2)):
         page = doc.new_page(width=595, height=842)
