@@ -7,6 +7,7 @@ entire content was "-- Page 2 ---- Page 3 --".
 """
 
 import io
+import os
 
 import pytest
 from docx import Document
@@ -162,3 +163,39 @@ def test_visible_chars_ignores_whitespace_and_markers(run):
     assert consumer._docx_visible_chars(make_docx(["ab cd"])) == 4
     # A separator written some other way is still chrome, not content.
     assert consumer._docx_visible_chars(make_docx(["— Page 2 —", "## page 3"])) == 0
+
+
+# ── Output files are not jobs ────────────────────────────────────────────────
+
+
+def test_converted_output_gets_no_status_sidecar(storage, monkeypatch):
+    """A finished .docx has no conversion state of its own.
+
+    save_file writes a "pending" status for anything it stores, which is right for
+    an upload and wrong for an output: it left one sidecar per conversion
+    permanently claiming a finished document was pending. Harmless to users, since
+    .docx is filtered from the listing, but it is dead data and it reads as a
+    backlog of unfinished jobs when you go looking at the bucket.
+    """
+    monkeypatch.setattr(consumer, "OCR_BACKEND", "gemini")
+    monkeypatch.setattr(consumer, "_refund_pages", lambda *a, **k: None)
+    monkeypatch.setattr(consumer, "_call_gemini", lambda *a, **k: make_docx([ARABIC]))
+    from app.ocr import triage
+    monkeypatch.setattr(
+        triage, "classify",
+        lambda *a, **k: triage.Triage(triage.ROUTE_GEMINI, triage.REASON_NO_TEXT_LAYER),
+    )
+
+    storage.save_file("42", "a.pdf", io.BytesIO(b"%PDF-1.4 fake"))
+    consumer.process_task({"file_id": "a.pdf", "user_id": "42", "pages": 1, "mode": "ocr"})
+
+    assert storage.get_status("42", "a.pdf") == "done"
+    # The output exists...
+    assert storage.file_exists("42", "a.docx")
+    # ...and carries no status file of its own. Checked on disk rather than
+    # through get_status, which returns "pending" for a missing file and so
+    # cannot tell "no status" from "status pending" — the very conflation that
+    # made this look like a backlog of abandoned jobs.
+    assert not os.path.exists(storage._status_path("42", "a.docx")), (
+        "the output was given a status sidecar; it is not a job"
+    )

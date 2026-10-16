@@ -23,11 +23,13 @@ class LocalFileStorage(FileStorage):
     def _meta_path(self, user_id: str, filename: str) -> str:
         return os.path.join(self._user_path(user_id), f"{safe_name(filename)}.meta.json")
 
-    def save_file(self, user_id: str, filename: str, file_obj: IO) -> str:
+    def save_file(self, user_id: str, filename: str, file_obj: IO,
+                  *, track_status: bool = True) -> str:
         path = os.path.join(self._user_path(user_id), safe_name(filename))
         with open(path, "wb") as f:
             f.write(file_obj.read())
-        self.set_status(user_id, filename, "pending")
+        if track_status:
+            self.set_status(user_id, filename, "pending")
         return path
 
     def list_files(self, user_id: str) -> list[DocumentInfo]:
