@@ -36,7 +36,15 @@ def safe_user_id(user_id: str) -> str:
 
 class FileStorage(ABC):
     @abstractmethod
-    def save_file(self, user_id: str, filename: str, file_obj: IO) -> str:
+    def save_file(self, user_id: str, filename: str, file_obj: IO,
+                  *, track_status: bool = True) -> str:
+        """Store a file. ``track_status`` writes the "pending" status sidecar that
+        marks it as something awaiting conversion.
+
+        Pass False for a CONVERSION OUTPUT. A finished .docx has no conversion
+        state of its own, and giving it one leaves a sidecar permanently claiming
+        the output is "pending" — dead data that reads as an unfinished job.
+        """
         pass
 
     @abstractmethod

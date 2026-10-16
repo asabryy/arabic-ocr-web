@@ -40,10 +40,12 @@ class R2FileStorage(FileStorage):
     def _meta_key(self, user_id: str, filename: str) -> str:
         return f"{user_id}/{filename}.meta.json"
 
-    def save_file(self, user_id: str, filename: str, file_obj: IO) -> str:
+    def save_file(self, user_id: str, filename: str, file_obj: IO,
+                  *, track_status: bool = True) -> str:
         key = self._key(user_id, filename)
         self.s3.upload_fileobj(file_obj, self.bucket, key)
-        self.set_status(user_id, filename, "pending")
+        if track_status:
+            self.set_status(user_id, filename, "pending")
         return key
 
     def list_files(self, user_id: str) -> list[DocumentInfo]:

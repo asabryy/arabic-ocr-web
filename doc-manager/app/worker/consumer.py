@@ -329,7 +329,11 @@ def process_task(task: dict, redelivered: bool = False) -> None:
         # ── Save DOCX back to storage ───────────────────────────────────────
         stem = file_id.rsplit(".", 1)[0]
         docx_filename = f"{stem}.docx"
-        storage.save_file(user_id, docx_filename, io.BytesIO(docx_bytes))
+        # track_status=False: this is the OUTPUT. Giving it a status sidecar
+        # leaves one per conversion permanently claiming a finished document is
+        # "pending", which reads as an unfinished job in the bucket.
+        storage.save_file(user_id, docx_filename, io.BytesIO(docx_bytes),
+                          track_status=False)
         logger.info("Saved DOCX as %s", docx_filename)
 
         storage.set_status(user_id, file_id, "done")
